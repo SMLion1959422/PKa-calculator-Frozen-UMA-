@@ -316,6 +316,14 @@ class PkaPredictor:
         """
         from . import solvents as _solvents
         info = _solvents.resolve_solvent(solvent)
+
+        # Force contiguous float64 arrays before every LightGBM .predict()
+        # call - prevents a Windows-only memory access violation with
+        # non-contiguous arrays. Applied to every regressor path (water
+        # dict-bundle, plain water regressor, and multisolvent), not just
+        # one of them.
+        feat_arr = np.ascontiguousarray(pair_feat, dtype=np.float64)
+
         if info.name == "Water":
             # model_core.pkl is a plain regressor. model_core_v2.pkl (the
             # RECOMMENDED aqueous model - RESULTS.md: leakage-fixed,
@@ -325,13 +333,14 @@ class PkaPredictor:
             # pKa. Handle both shapes rather than silently mis-scoring
             # one of them.
             if isinstance(self.regressor, dict) and "regressor" in self.regressor:
-                raw = float(self.regressor["regressor"].predict(pair_feat)[0])
+                raw = float(self.regressor["regressor"].predict(feat_arr)[0])
                 if "calibrator" in self.regressor and self.regressor["calibrator"] is not None:
                     return float(self.regressor["calibrator"].predict([raw])[0])
                 return raw
-            return float(self.regressor.predict(pair_feat)[0])
+            return float(self.regressor.predict(feat_arr)[0])
         bundle = self._load_multisolvent()
-        feat = np.concatenate([pair_feat.reshape(-1), [info.eps_norm, info.protic]]).reshape(1, -1)
+        feat = np.concatenate([feat_arr.reshape(-1), [info.eps_norm, info.protic]]).reshape(1, -1)
+        feat = np.ascontiguousarray(feat, dtype=np.float64)
         return float(bundle["model"].predict(feat)[0])
 
     # -- prediction -----------------------------------------------------
