@@ -18,7 +18,7 @@ this up on.
 ```bash
 git clone https://github.com/SMLion1959422/umapka.git
 cd umapka
-python3.11 -m venv venv311
+python -m venv venv311
 ```
 
 Activate it:
