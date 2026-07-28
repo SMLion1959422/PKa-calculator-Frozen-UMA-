@@ -1,0 +1,96 @@
+﻿# too big for GitHub (>50 MB)
+free_energy_ensemble*.pkl
+
+# regenerable caches (recompute with the scripts in the repo)
+feat_train.pkl
+feat_train_expanded.pkl
+feat_seq.pkl
+feat_iupac_polyprotic.pkl
+solvent_feat_cache.pkl
+*.npy
+
+# downloaded datasets (re-download with the URLs in RESULTS.md)
+anion_data/
+anion_data.zip
+mlpka/
+iupac_pka/
+iupac_check/
+nonaq_low_error.csv
+nonaq_aqueous.csv
+
+# virtual environments
+venv/
+venv311/
+
+# intermediate results (regenerable by running the scripts)
+*.pyc
+__pycache__/
+*.egg-info/
+characterization_results.csv
+characterization_external.csv
+all_molecules_results.csv
+novartis_local_final.csv
+novartis_local_partial.csv
+v2_vs_v3_external.csv
+v2_v4_external.csv
+hyperparam_search_results.csv
+iupac_polyprotic_candidates.csv
+pkb_candidates.csv
+
+# old/superseded models (keep only the ones that matter)
+free_energy_model_v2.pkl
+free_energy_model_v2_controlled.pkl
+model_core_ensemble.pkl
+
+# scratch / one-off experiment scripts (today's session)
+audit_and_bigger_ensemble.py
+check_*.py
+compare_*.py
+count_*.py
+diagnose_*.py
+evaluate_*.py
+expand_features.py
+extract_pkb.py
+generate_iupac_embeddings.py
+hyperparam_search.py
+inspect_assignments.py
+list_zero_site.py
+multisite_breakdown.py
+novartis_local_v2.py
+patch_*.py
+random_split_*.py
+scan_for_solvent.py
+size_correction_test.py
+smoke_test.py
+test_*.py
+train_calibrated.py
+train_microstate_nn.py
+train_multisolvent.py
+train_tuned_ensemble.py
+train_v3.py
+tune_single_site.py
+use_v2.py
+verify_smarts_patch*.py
+models/evaluate_*.py
+models/explore_*.py
+models/extract_*.py
+models/filtered_monotonicity.py
+models/generate_*.py
+models/test_*.py
+models/train_*.py
+models/use_v2.py
+
+# superseded / intermediate models
+models/model_core_v3.pkl
+models/multisolvent_model.pkl
+models/solvent_shift_model.pkl
+models/model_sequential*.pkl
+models/pka_model_*.pkl
+models/free_energy_model*.pkl
+models/feat_ext.pkl
+models/feat_nov.pkl
+models/feat_avli.pkl
+best_hyperparams*.pkl
+microstate_energy_net.pt
+characterize.py
+train_anion_multisolvent.py
