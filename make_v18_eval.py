@@ -1,0 +1,6 @@
+﻿src = open("eval_v16.py", encoding="utf-8").read()
+src = src.replace("models/model_core_v16_elec.pkl", "models/model_core_v18_maxdata.pkl")
+src = src.replace("characterization_external_v16.csv", "characterization_external_v18.csv")
+src = src.replace("=== v16: UMA + ELECTRONIC", "=== v18: MAX DATA")
+open("eval_v18.py","w",encoding="utf-8").write(src)
+print("wrote eval_v18.py")

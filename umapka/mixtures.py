@@ -106,6 +106,27 @@ MIXTURE_DIELECTRIC_DATA = {
 # extrapolating it further than the classic literature range supports.
 _CURVATURE_WARNING_FRACTION = 0.5
 
+# Power applied to the 1/epsilon interpolation fraction `t` before using
+# it to blend the two endpoint pKa values. 1.0 = straight-line
+# behaviour. >1 flattens the curve near the water-rich endpoint and
+# steepens it near the organic-rich endpoint; both trained endpoints
+# stay exact.
+#
+# THIS IS AN UNVALIDATED HEURISTIC SHAPE, NOT A FITTED PARAMETER. No
+# composition-resolved experimental mixture pKa data exists in this
+# project, so there is nothing here to fit it against and no number
+# that would justify 2.5 over 2.0 or 3.0. It is applied because a
+# straight line between the two endpoints was judged to overshoot in
+# the water-rich region (the pure-organic endpoint sits on a different
+# absolute pKa scale / standard state than water, so the two endpoints
+# are not two points on one physical curve). Treat every mixture number
+# as directional. See predict_mixed_solvent_pka's returned
+# "confidence"/"warning" and the README section on mixtures.
+#
+# (Was previously defined twice, identically, in this file - editing the
+# first copy silently had no effect because the second overwrote it.)
+_CURVATURE_EXPONENT = 2.5
+
 
 def _lookup_pair(solvent_a: str, solvent_b: str):
     a, b = solvent_a.lower(), solvent_b.lower()
@@ -201,15 +222,23 @@ def predict_mixed_solvent_pka(predictor, smiles: str,
         )
     eps_mix, eps_method = mixture_dielectric(solvent_a, solvent_b, fraction_b)
 
-    # Yasuda-Shedlovsky: pKa is linear in 1/epsilon. Interpolate in that
-    # space between the two TRAINED endpoint predictions, not by
+    # Yasuda-Shedlovsky: pKa is taken as a function of 1/epsilon.
+    # Interpolate between the two TRAINED endpoint predictions, not by
     # re-running the ML model on a fabricated intermediate feature.
     inv_a, inv_b, inv_mix = 1.0 / eps_a, 1.0 / eps_b, 1.0 / eps_mix
     if inv_b == inv_a:
         t = 0.0
     else:
         t = (inv_mix - inv_a) / (inv_b - inv_a)
-    pka_mix = pka_a + t * (pka_b - pka_a)
+    # Curvature correction: a straight line in 1/epsilon between the two
+    # endpoints overshoots in the water-rich region for every solvent
+    # pair, because the pure-organic endpoint sits on a very different
+    # absolute pKa scale than water. Reparametrizing t through a convex
+    # power law keeps both trained endpoints exact while suppressing
+    # that early overshoot and pushing most of the change later.
+    t_clamped = min(max(t, 0.0), 1.0)
+    t_shaped = t_clamped ** _CURVATURE_EXPONENT
+    pka_mix = pka_a + t_shaped * (pka_b - pka_a)
 
     warning = None
     confidence = "normal"
@@ -223,10 +252,12 @@ def predict_mixed_solvent_pka(predictor, smiles: str,
     elif organic_fraction > _CURVATURE_WARNING_FRACTION:
         confidence = "low"
         warning = (f"organic cosolvent fraction ({organic_fraction:.0%}) is "
-                   f"past the water-rich range where linear-in-1/epsilon "
-                   f"behaviour is well established; real pKa may curve "
-                   f"away from this estimate as you approach the pure "
-                   f"organic solvent")
+                   f"past the water-rich range where Yasuda-Shedlovsky "
+                   f"behaviour is best established; a curvature correction "
+                   f"is applied (see umapka/mixtures.py), but it is a "
+                   f"documented heuristic shape, not measured mixture data "
+                   f"- treat this estimate with real skepticism this far "
+                   f"from the aqueous endpoint")
     if eps_method == "linear-fallback":
         confidence = "low"
         extra = ("no measured dielectric curve on file for this solvent "
@@ -240,6 +271,7 @@ def predict_mixed_solvent_pka(predictor, smiles: str,
         "endpoint_b": pka_b,
         "epsilon_mix": eps_mix,
         "epsilon_method": eps_method,
+        "interp_fraction": t_clamped,
         "confidence": confidence,
         "warning": warning,
     }

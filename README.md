@@ -31,19 +31,41 @@ These are honest limitations, not bugs. See [Limitations](#limitations).
 
 ## Performance
 
+Current default model (`models/model_core_v20_ensemble.pkl`), scored with
+**self-contained site finding** — no ChemAxon annotations at inference:
+
+| External benchmark | this work | ChemAxon Marvin |
+|---|---|---|
+| **Novartis** (n = 278) | **0.918** | 0.856 *(uses its own site annotations)* |
+| AvLiLuMoVe (n = 122) | **0.411** | 0.566 |
+
+MAE in pKa units. See `RESULTS.md` §6 for the full ablation, including
+**eight** approaches that did **not** work (more data, size reweighting,
+xTB descriptors, attention pooling, MLP heads, end-to-end UMA
+fine-tuning, higher-L spherical-harmonic channels, SASA descriptors).
+
+The session's clearest finding: every improvement came from **site
+assignment**, none from the regressor. 1.001 -> 0.918 via a learned
+acid/base kind classifier, real stochastic bagging, and a hard-negative
+site detector that puts previously-unreachable chemistry (primary
+sulfonamides, thiols, phosphonic acids) on the ballot.
+
+**Novartis is the honest headline.** Median nearest-neighbour Tanimoto to
+training is 0.365 (0.7% near-duplicates) — genuine extrapolation.
+AvLiLuMoVe is largely interpolation (0.708 median, 27.6%
+near-duplicates), so a model can look excellent there while being worse
+on novel chemistry. Do not optimise the combined average.
+
+Historical numbers, for context (earlier models / different site
+handling):
+
 | Evaluation | UMA embeddings | ECFP4 fingerprints |
 |---|---|---|
 | 5-fold CV (n = 5360) | **0.673** | 0.819 |
 | **Scaffold split** (n = 1072, zero core overlap) | **0.994** | 1.090 |
-| Novartis external (n = 263) | **1.170** | 1.445 |
-| AvLiLuMoVe external (n = 122) | **0.696** | 0.721 |
 
-All values are MAE in pKa units. Published random-forest benchmark on the
-same dataset: 0.682 ([Baltruschat & Czodrowski 2020](https://f1000research.com/articles/9-113)).
-
-**Scaffold split (0.994) is the honest headline number** — test molecules
-share no Bemis–Murcko core with anything in training. Random-split
-numbers are optimistic because analogues leak across the boundary.
+Published random-forest benchmark on the same dataset: 0.682
+([Baltruschat & Czodrowski 2020](https://f1000research.com/articles/9-113)).
 
 ### Validation against memorization
 
@@ -93,6 +115,33 @@ p.predict("CCN")                        # ethylamine    -> ~10.7
 for s in p.sites("CC(=O)Nc1ccc(O)cc1"):
     print(s["index"], s["group"], p.predict_site("CC(=O)Nc1ccc(O)cc1", s["index"]))
 ```
+
+### Polyprotic acids, bases, and zwitterions
+
+`predict_pka.py`/`predict()` only resolve ONE site and don't model
+site-site electrostatic coupling - fine for monoprotic molecules, wrong
+for amino acids, diacids, polyamines, etc. (independent-site prediction
+famously gets aspartic acid's amine pKa backwards: 7.46 instead of the
+real ~9.9, because it ignores that both carboxylates are already
+deprotonated by the time the amine ionizes). For those, use:
+
+```bash
+# full microstate ensemble (most accurate, least-squares thermodynamically
+# consistent, reports a residual as a built-in confidence signal) - handles
+# up to 5 titratable sites (2^5 = 32 microstates)
+python predict_microstates.py "NCC(=O)O" --ph 7.4          # glycine
+python predict_microstates.py "OC(=O)CC(N)C(=O)O"          # aspartic acid
+
+# faster greedy sequential ladder (one dominant path, no consistency check) -
+# use this if microstates.py's site count cap is exceeded
+python predict_ladder.py "NCCCCC(N)C(=O)O" --compare        # lysine
+```
+
+Both report every macro pKa, the species-distribution/pH profile, and
+(microstates.py only) an RMS residual telling you how self-consistent
+the underlying single-site predictions were - a large residual is an
+honest sign to distrust the result, not something an independent-site
+prediction can tell you at all.
 
 ---
 
@@ -206,10 +255,16 @@ energies.
 
 - **Aqueous only.** No solvent is modelled; aqueous behaviour is learned
   entirely from the training labels. Will not transfer to other solvents.
-- **Site selection is heuristic.** SMARTS matching covers ~89% of
-  drug-like molecules; primary sulfonamides, N-oxides and weakly basic
-  aryl amines are missed. For multi-site molecules the first match by
-  priority order is used unless you call `predict_site` explicitly.
+- **Site selection is now learned, not heuristic.** SMARTS still
+  *enumerates* candidate atoms (so genuinely unmatched chemistry —
+  primary sulfonamides, N-oxides, weakly basic aryl amines — is still
+  missed), but which candidate is chosen is decided by a trained ranker
+  (`models/site_finder_v2.pkl`, 97.4% atom accuracy on Novartis vs 56.5%
+  for the old first-match-by-priority rule), and the acid/base kind by a
+  trained classifier (`models/kind_classifier.pkl`, 99.3% vs 94.9% for
+  the H-count rule). Kind matters more than it sounds: a wrong kind
+  computes the *opposite* proton transfer, and those molecules scored
+  MAE 3.9 vs 0.85 for the rest. Use `predict_site` to override.
 - **Single conformer** per structure, no ensemble averaging.
 - **Polyprotic support is not validated.** Second ionizations require
   −1 → −2 transitions, which are absent from the training distribution.

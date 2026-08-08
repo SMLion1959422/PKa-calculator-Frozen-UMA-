@@ -1,0 +1,6 @@
+﻿src = open("eval_core_v11.py", encoding="utf-8").read()
+src = src.replace("models/model_core_v11.pkl", "models/model_core_v14.pkl")
+src = src.replace("characterization_external_v11.csv", "characterization_external_v14.csv")
+src = src.replace("=== v11: full site-consistent training", "=== v14: + hunt_et_al data")
+open("eval_core_v14.py", "w", encoding="utf-8").write(src)
+print("wrote eval_core_v14.py")

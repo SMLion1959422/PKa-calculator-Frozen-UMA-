@@ -257,10 +257,17 @@ def pka_shift_debye_huckel(site_kind: str, I: float,
     else:
         raise ValueError("site_kind must be 'acid' or 'base'")
 
-    # pKa_apparent = pKa_thermodynamic - d_log_gamma  (sign convention:
-    # stabilizing the products relative to reactant lowers apparent pKa
-    # for an acid dissociation)
-    return -d_log_gamma
+    # Ka_thermo = Ka_conc * gamma_H+ * gamma_(conjugate) / gamma_(acid form)
+    # => pKa_conc (apparent) = pKa_thermo + [log_gamma(H+) + log_gamma(conj)
+    #                                         - log_gamma(acid form)]
+    #                         = pKa_thermo + d_log_gamma
+    # d_log_gamma is NEGATIVE here (activity coefficients of the ions
+    # drop below 1 as ionic strength rises), so this correctly LOWERS
+    # the apparent pKa of a neutral acid as salt is added - the classic
+    # kinetic-salt-effect direction. (Bug fixed: this previously
+    # returned -d_log_gamma, which flipped the sign and made the
+    # correction RAISE pKa instead of lowering it.)
+    return d_log_gamma
 
 
 # ---------------------------------------------------------------------

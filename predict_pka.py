@@ -59,10 +59,22 @@ def main():
     ap.add_argument("--salt", help="salt formula, e.g. NaCl (see --list-salts)")
     ap.add_argument("--molarity", type=float, dest="salt_concentration",
                     help="salt concentration in mol/L (requires --salt)")
-    ap.add_argument("--model-path", default="models/model_core_v2.pkl",
-                    help="aqueous regressor to use (default: model_core_v2.pkl, "
-                        "the leakage-fixed model - see RESULTS.md; "
-                        "model_core.pkl is the older, leaky one)")
+    ap.add_argument("--model-path", default="models/model_core_v3.pkl",
+                    help="base regressor for solvent/salt/mixture paths and as "
+                        "the fallback if --hybrid-model-path can't be used "
+                        "(default: model_core_v3.pkl, global+site-local "
+                        "pooling - external MAE 0.871 vs v2's 1.16-1.17; "
+                        "see RESULTS.md/eval_core_v3.py)")
+    ap.add_argument("--hybrid-model-path", default="models/model_core_v20_ensemble.pkl",
+                    help="preferred model for plain water/no-salt predictions: "
+                        "UMA embeddings + Gasteiger/EState descriptors, 3-seed "
+                        "bagged LightGBM blended with ridge, isotonic "
+                        "calibrated. Real-world held-out MAE with the learned "
+                        "site finder + kind classifier: 0.949 Novartis / 0.411 "
+                        "AvLiLuMoVe (v16_elec was 0.965/0.449). Not used for "
+                        "non-water solvents, salt, or mixtures - those always "
+                        "use --model-path; point this at a nonexistent path to "
+                        "force --model-path everywhere.")
     ap.add_argument("--list-solvents", action="store_true")
     ap.add_argument("--list-salts", action="store_true")
     args = ap.parse_args()
@@ -102,7 +114,17 @@ def main():
         print("ERROR: --mix given without --fraction."); sys.exit(1)
 
     from umapka import PkaPredictor
+    from umapka import electronic
+    from umapka.predictor import protonation_pair_site_tagged
+    import joblib
     p = PkaPredictor(args.model_path)
+    try:
+        hybrid_bundle = joblib.load(args.hybrid_model_path)
+        if not (electronic.is_hybrid_bundle(hybrid_bundle)
+                or electronic.is_ensemble_bundle(hybrid_bundle)):
+            hybrid_bundle = None
+    except Exception:
+        hybrid_bundle = None
 
     if args.sites:
         if not args.smiles:
@@ -112,6 +134,29 @@ def main():
         return
 
     print(f"\nMolecule : {args.smiles or args.prot}")
+
+    if args.smiles and args.site is None:
+        try:
+            all_sites = p.sites(args.smiles)
+            kinds = {s["kind"] for s in all_sites}
+            if len(all_sites) > 1 and "acid" in kinds and "base" in kinds:
+                print("NOTE: this molecule has both acidic and basic titratable "
+                      "groups (e.g. an amino acid or aminophenol) - this tool "
+                      "predicts only ONE site and does not model zwitterion/"
+                      "multi-site coupling; treat the result below as unreliable "
+                      "for pKa2 and beyond. For the full picture (all pKa values, "
+                      "zwitterion population, pH profile), run:\n"
+                      f"    python predict_microstates.py \"{args.smiles}\"")
+            elif len(all_sites) > 1:
+                print(f"NOTE: {len(all_sites)} titratable sites detected; the "
+                      "learned site-finder picked the most likely one, but this "
+                      "is a polyprotic molecule - independent single-site "
+                      "prediction does not capture site-site coupling as each "
+                      "proton comes off. For all pKa values on the real "
+                      "electrostatic ladder, run:\n"
+                      f"    python predict_microstates.py \"{args.smiles}\"")
+        except Exception:
+            pass
 
     if args.mix:
         try:
@@ -148,6 +193,22 @@ def main():
             detail = {"pKa": pka, "base_pKa": pka,
                      "correction": {"shift": 0.0, "tier": "none",
                                     "note": "explicit --prot/--deprot bypasses salt correction"}}
+        elif (hybrid_bundle is not None and not args.salt
+              and sv.resolve_solvent(args.solvent).name == "Water"):
+            try:
+                prot, prot_idx, dep, dep_idx, kind = protonation_pair_site_tagged(
+                    args.smiles, return_kind=True)
+                feat = electronic.build_hybrid_features(
+                    p, prot, prot_idx, dep, dep_idx, kind)
+                if feat is None:
+                    raise RuntimeError("hybrid feature extraction failed")
+                pka = electronic.score_any(hybrid_bundle, feat)
+                detail = {"pKa": pka, "base_pKa": pka,
+                         "correction": {"shift": 0.0, "tier": "none",
+                                        "note": "UMA + electronic-descriptor "
+                                                "hybrid model (--hybrid-model-path)"}}
+            except Exception:
+                detail = p.predict_detailed(args.smiles, **kwargs)
         else:
             detail = p.predict_detailed(args.smiles, **kwargs)
 
@@ -168,3 +229,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

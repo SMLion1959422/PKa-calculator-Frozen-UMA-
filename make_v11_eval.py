@@ -1,0 +1,6 @@
+﻿src = open("eval_core_v9_marvin.py", encoding="utf-8").read()
+src = src.replace("models/model_core_v7_clean.pkl", "models/model_core_v11.pkl")
+src = src.replace("characterization_external_v9_marvin.csv", "characterization_external_v11.csv")
+src = src.replace("=== v9: MARVIN ground-truth sites", "=== v11: full site-consistent training")
+open("eval_core_v11.py", "w", encoding="utf-8").write(src)
+print("wrote eval_core_v11.py")

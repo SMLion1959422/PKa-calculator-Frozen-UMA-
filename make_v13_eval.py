@@ -1,0 +1,6 @@
+﻿src = open("eval_core_v12.py", encoding="utf-8").read()
+src = src.replace("models/model_core_v12_split.pkl", "models/model_core_v13_split_full.pkl")
+src = src.replace("characterization_external_v12.csv", "characterization_external_v13.csv")
+src = src.replace("=== v12: SPLIT acid/base models", "=== v13: SPLIT trained on FULL data")
+open("eval_core_v13.py", "w", encoding="utf-8").write(src)
+print("wrote eval_core_v13.py")

@@ -35,7 +35,7 @@ class SolventInfo:
 
 
 SOLVENTS: dict[str, SolventInfo] = {
-    "water":          SolventInfo("Water", "O", 1.00, 1.0, 78.4, 0.64, "water"),
+    "water":          SolventInfo("Water", "O", 1.00, 1.0, 78.4, 0.78, "water"),
     "dmso":           SolventInfo("DMSO", "CS(C)=O", 0.60, 0.0, 46.7, 1.15, "dmso"),
     "acetonitrile":   SolventInfo("Acetonitrile", "CC#N", 0.48, 0.0, 37.5, 0.71, "acetonitrile"),
     "dmf":            SolventInfo("DMF", "CN(C)C=O", 0.47, 0.0, 36.7, 0.40, "dmf"),

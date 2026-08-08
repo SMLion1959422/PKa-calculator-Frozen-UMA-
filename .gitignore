@@ -1,4 +1,4 @@
-﻿# too big for GitHub (>50 MB)
+# too big for GitHub (>50 MB)
 free_energy_ensemble*.pkl
 
 # regenerable caches (recompute with the scripts in the repo)
@@ -94,3 +94,54 @@ best_hyperparams*.pkl
 microstate_energy_net.pt
 characterize.py
 train_anion_multisolvent.py
+
+# ---------------------------------------------------------------
+# Added during the site-assignment work (see RESULTS.md section 6)
+# ---------------------------------------------------------------
+
+# Feature caches: large, and every one is regenerable from a script in
+# this repo. Two of these EXCEED GitHub's 100 MB hard limit, so a plain
+# `git add -A` would fail the push outright.
+#   core_maxdata.pkl          201 MB
+#   feat_train_v6.pkl         121 MB   <- embed_core_v6.py
+#   feat_train_v3_expanded.pkl 81 MB
+#   feat_distill.pkl           54 MB
+#   feat_train_v4.pkl          49 MB   <- embed_core_v4.py
+#   feat_train_v3.pkl          33 MB   <- embed_core_v3.py
+feat_*.pkl
+core_maxdata.pkl
+*.pkl.partial
+conformer_*.pkl
+kind_features.pkl
+hard_negative_features.pkl
+
+# scratch run logs
+scratch_*.log
+diag_output.txt
+
+# archives (source data is documented in RESULTS.md; colab_bundle.zip is
+# rebuilt by make_colab_bundle.py)
+*.zip
+
+# Models: ignore by default so experimental runs do not silently bloat
+# the repo, then allow-list the ones the shipped pipeline actually loads.
+models/*.pkl
+!models/model_core_v3.pkl
+!models/model_core_v16_elec.pkl
+!models/model_core_v20_ensemble.pkl
+!models/multisolvent_tuned.pkl
+!models/site_finder_v2.pkl
+!models/kind_classifier.pkl
+!models/site_detector.pkl
+
+# Nested git repositories - committing these creates broken submodule
+# stubs (clones get empty directories). Their useful contents were
+# already copied into this repo: release/ supplied predict_ladder.py and
+# predict_microstates.py, which now live at the root.
+release/
+extra_pka_source/
+colab_bundle/
+
+# test_all.py is the real 22-test suite, not a throwaway - the
+# pre-existing test_*.py rule above was hiding it.
+!test_all.py
