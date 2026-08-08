@@ -40,15 +40,19 @@ Current default model (`models/model_core_v20_ensemble.pkl`), scored with
 | AvLiLuMoVe (n = 122) | **0.411** | 0.566 |
 
 MAE in pKa units. See `RESULTS.md` §6 for the full ablation, including
-**eight** approaches that did **not** work (more data, size reweighting,
-xTB descriptors, attention pooling, MLP heads, end-to-end UMA
-fine-tuning, higher-L spherical-harmonic channels, SASA descriptors).
+**nine** approaches that did **not** work (more training data, size
+reweighting, xTB descriptors, attention pooling, MLP heads, end-to-end
+UMA fine-tuning, higher-L spherical-harmonic channels, SASA descriptors,
+and L1/Huber training objectives), plus LoRA ruled out by architecture.
 
-The session's clearest finding: every improvement came from **site
-assignment**, none from the regressor. 1.001 -> 0.918 via a learned
-acid/base kind classifier, real stochastic bagging, and a hard-negative
-site detector that puts previously-unreachable chemistry (primary
-sulfonamides, thiols, phosphonic acids) on the ballot.
+**Every improvement came from site assignment; none from the
+regressor.** 1.001 -> 0.918 via a learned acid/base kind classifier
+(`kind_classifier.pkl`), real stochastic bagging, and a hard-negative
+site detector (`site_detector.pkl`) that puts previously-unreachable
+chemistry - primary sulfonamides, thiols, phosphonic acids - on the
+candidate ballot. Site assignment is now ~solved (98.6% acid/base
+agreement); the remaining wall is **0.841**, the MAE on molecules whose
+site and kind are both already correct.
 
 **Novartis is the honest headline.** Median nearest-neighbour Tanimoto to
 training is 0.365 (0.7% near-duplicates) — genuine extrapolation.
@@ -84,8 +88,8 @@ Published random-forest benchmark on the same dataset: 0.682
 ## Install
 
 ```bash
-git clone https://github.com/SMLion1959422/umapka.git
-cd umapka
+git clone https://github.com/SMLion1959422/PKa-calculator-Frozen-UMA-.git
+cd PKa-calculator-Frozen-UMA-
 pip install -e .
 ```
 
@@ -96,7 +100,16 @@ UMA weights require a HuggingFace account with access to
 huggingface-cli login
 ```
 
-A GPU is strongly recommended (~0.35 s per molecule; far slower on CPU).
+A GPU helps (~0.35 s/molecule) but is **not required**. On CPU the model
+itself is fast (~0.7 s/molecule); what is slow is re-reading the 1.17 GB
+UMA checkpoint on every process start (~60 s). For more than one
+molecule use `pka_server.py`, which loads once and then answers in
+under a second, with a persistent cache:
+
+```bash
+python pka_server.py --batch molecules.txt --out results.csv
+python pka_server.py                 # interactive
+```
 
 ---
 
@@ -105,7 +118,7 @@ A GPU is strongly recommended (~0.35 s per molecule; far slower on CPU).
 ```python
 from umapka import PkaPredictor
 
-p = PkaPredictor("models/model_core.pkl")
+p = PkaPredictor("models/model_core_v3.pkl")
 
 p.predict("CC(=O)O")                    # acetic acid   -> ~4.2
 p.predict("Oc1ccccc1")                  # phenol        -> ~10.0
@@ -171,7 +184,7 @@ Or from Python:
 from umapka import PkaPredictor
 from umapka.mixtures import predict_mixed_solvent_pka
 
-p = PkaPredictor("models/model_core_v2.pkl")
+p = PkaPredictor("models/model_core_v3.pkl")
 
 p.predict("CC(=O)O", solvent="dmso")
 p.predict("CC(=O)O", salt="NaCl", salt_concentration=0.15)

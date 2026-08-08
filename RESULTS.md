@@ -215,7 +215,26 @@ colsample_bytree=0.8` makes seeding do anything at all.
 | end-to-end UMA fine-tuning (GPU) | **no gain over frozen UMA** |
 | higher-L (L=1/L=2) spherical-harmonic channels | +0.0080 OOF, 95% CI [-0.019, +0.036], p=0.574 |
 | SASA solvent-exposure descriptors | -0.0020 OOF, 95% CI [-0.006, +0.002] |
+| L1 / Huber / Fair training objective | L1 **-0.0466 WORSE**, CI [-0.055, -0.038] |
 | LoRA / PEFT adapters | **not applicable** - UMA has 0 attention modules |
+
+**Training objective (experiment_objective.py).** Every model here uses
+LightGBM's default L2 objective while every reported metric is MAE.
+Optimising squared error when measuring absolute error looks like a
+textbook mismatch, so it was tested - and L2 won clearly:
+
+| objective | OOF MAE | vs L2 |
+|---|---|---|
+| **L2 (default, current)** | **0.4809** | - |
+| L1 (`regression_l1`) | 0.5275 | **-0.0466, CI [-0.055, -0.038] WORSE** |
+| Huber a=1.0 | 0.4797 | +0.0013, noise |
+| Huber a=2.0 | 0.4810 | noise |
+| Fair c=1.0 | 0.5103 | **-0.0294 WORSE** |
+
+L1's gradient is `sign(residual)`, constant in magnitude, so boosting
+converges much more slowly - 800 trees at lr 0.05 leaves it
+undertrained. The isotonic calibrator downstream also already absorbs
+most of the L2->MAE mismatch. **Do not "fix" the objective.**
 
 **Higher-L channels.** UMA's backbone emits `(n_atoms, 9, 128)`; every
 feature here uses the L=0 scalar block, discarding the L=1 dipole and
@@ -340,6 +359,27 @@ on training chemistry is the wrong objective for it. This is a
 GENERALISATION gap, not a fitting gap, and the binding constraint is
 5184 training molecules, not model capacity, feature engineering, or
 architecture.
+
+### Started but NOT finished - the one lever still open
+
+**Test-time conformer averaging** (`experiment_conformers.py`). Every
+prediction rests on ONE ETKDG conformer per protonation state
+(seed=42). Averaging predictions over K independent conformers should
+cut geometry noise by ~sqrt(K). Unlike everything above it changes
+neither what the model sees nor what it minimises - it is pure variance
+reduction at inference, needs no retraining, and averages PREDICTIONS
+rather than features so there is no train/test mismatch.
+
+The run was killed by a session teardown after writing only its header,
+so **there is no result** - do not record this as either a success or a
+failure. It also reports per-molecule conformer spread, which bounds how
+much geometry noise is recoverable at all:
+  - spread large (>0.3) -> averaging should help, and every number in
+    this repo carries hidden conformer variance
+  - spread small (<0.1) -> UMA is geometry-robust and the residual is
+    genuinely chemical
+
+    python experiment_conformers.py --k 5      # ~50-70 min, CPU, no retraining
 
 **Do not attack the regressor again without new data.** Specifically,
 the two data strategies NOT yet tried, and the reason each differs from
