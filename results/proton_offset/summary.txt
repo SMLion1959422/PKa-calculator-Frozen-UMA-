@@ -99,3 +99,49 @@ only solvent making alpha continuous rather than two-valued is acetonitrile
 in test 2. The data cannot distinguish a continuous alpha dependence from a
 two-state protic/aprotic one. The two-term decomposition survives either way.
 
+== UPDATE: literature values re-sourced, DMF corrected ==
+TATB-assumption recommended values located in the secondary literature
+(kJ/mol): MeOH 8.7, EtOH 11.1, MeCN 44.8, DMSO -19.4, DMF -14.4.
+
+Four of the five independently REPRODUCE the values already in the table
+(to <= 0.05 kcal/mol), including the three previously marked verified.
+DMF did not: the earlier UNVERIFIED entry used -18.4 kJ/mol, and the
+sourced value is -14.4 kJ/mol -- wrong by 0.96 kcal/mol = 0.70 pK units.
+Ethanol's guess (+2.6 kcal) was very close to the sourced +2.65.
+No value was located for NMP or ethylene glycol; both are left out (and
+both have <20 paired rows anyway).
+
+Rerunning the decomposition with the corrected DMF value:
+
+                        BEFORE (bad DMF)      AFTER (corrected)
+  joint dG_tr(H+) coef  +0.990                +1.019
+  its 95% CI            [+0.658, +1.322]      [+0.841, +1.196]
+  d_alpha coef          -6.870                -6.657
+  LOO MAE               1.14                  0.40
+  aprotic spread         2.06                  1.36
+  sequential r2 (alpha)  0.979                 0.993
+  specificity: r2 (beta) 0.032                 0.041
+
+Two things follow.
+
+1. The CI on the proton coefficient now EXCLUDES 0.733 (the value that
+   would be mandated if the two terms were in mismatched units) while
+   containing the 1.00 the cycle requires with matched units. Before the
+   correction the CI contained both and discriminated nothing. This is
+   now an actual passed test rather than a vacuous one.
+
+2. Roughly a third of the previously "unexplained" aprotic spread
+   (2.06 -> 1.36 pK) was a bad literature input, not chemistry.
+
+Note what did NOT cause the improvement: no parameter was added and no
+fit was freed. A single input was replaced with an independently sourced
+value, and the residuals fell. That is the behaviour of a correct model
+given a corrected input.
+
+STILL OUTSTANDING: none of these five values has been read by this
+project off a PRIMARY table; they are secondary reports of the TATB
+compilations, cross-checked against each other. Methanol alone is quoted
+at both 8.7 and 10.4 kJ/mol by different compilations (0.4 kcal spread),
+which bounds the achievable accuracy. Read them from a primary source and
+cite it before publishing.
+

@@ -436,3 +436,37 @@ than chemistry (see below).
   reactions measured in water and >= 2 non-water solvents). If the
   aprotic spread shrinks, the 2.5-unit anomaly was composition.
 
+### Update: literature values re-sourced; DMF was wrong, and fixing it sharpens the result
+
+TATB recommended values (kJ/mol): MeOH 8.7, EtOH 11.1, MeCN 44.8,
+DMSO -19.4, DMF -14.4. Four reproduce the table's existing entries to
+<= 0.05 kcal/mol. **DMF did not**: the unverified entry was -18.4 kJ/mol
+against a sourced -14.4, an error of 0.96 kcal/mol (0.70 pK units).
+
+| | before (bad DMF) | after |
+|---|---|---|
+| joint dG_tr(H+) coefficient | +0.990 | **+1.019** |
+| its 95% CI | [0.658, 1.322] | **[0.841, 1.196]** |
+| LOO MAE | 1.14 | **0.40** |
+| aprotic spread | 2.06 | 1.36 |
+| sequential r^2 vs alpha | 0.979 | 0.993 |
+| specificity: r^2 vs beta | 0.032 | 0.041 |
+
+The CI now **excludes 0.733** -- the coefficient that would be mandated
+if the offset and the proton term were in mismatched units -- while
+containing the 1.00 that matched units require. Before the correction
+the interval contained both and discriminated nothing. The units
+objection is now answered by the data rather than only by inspecting the
+code.
+
+About a third of the previously unexplained aprotic spread was a bad
+literature input rather than chemistry. And no parameter was added and no
+fit was freed to get there: one input was replaced with an independently
+sourced value and the residuals fell, which is how a correct model
+behaves given a corrected input.
+
+Still outstanding: none of the five has been read off a PRIMARY table by
+this project, and methanol alone is quoted at both 8.7 and 10.4 kJ/mol
+(0.4 kcal spread) across compilations. NMP and ethylene glycol have no
+located value and too few rows to use.
+

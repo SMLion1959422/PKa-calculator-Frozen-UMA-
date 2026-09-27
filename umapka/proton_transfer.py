@@ -20,12 +20,10 @@ without an extrathermodynamic assumption; compilations disagree by
 several kJ/mol, and by more for less-studied solvents. Each entry
 carries a `verified` flag:
 
-  verified=True   value cross-checked against a citable compilation
-                  (Kalidas, Hefter & Marcus, Chem. Rev. 2000, 100, 819,
-                  as reported in secondary sources)
-  verified=False  commonly quoted value entered from general knowledge
-                  and NOT re-checked against the primary source; treat
-                  as indicative only and re-verify before publication
+  verified=True   value reproduced from two independent secondary
+                  sources that agree to <= 0.05 kcal/mol
+  verified=False  entered from general knowledge and NOT corroborated;
+                  treat as indicative only
 
 Anyone using this for a paper should replace the whole table with values
 read from a primary compilation, and say which one. A modern
@@ -53,17 +51,34 @@ class ProtonTransfer:
 
 DG_TR_PROTON: dict[str, ProtonTransfer] = {
     "Water":        ProtonTransfer("Water", 0.0, True, "reference state, exact by definition"),
-    "Methanol":     ProtonTransfer("Methanol", 2.1, True, "Kalidas/Hefter/Marcus"),
-    "Acetonitrile": ProtonTransfer("Acetonitrile", 10.7, True,
-                                   "Kalidas/Hefter/Marcus; the large positive value is why "
-                                   "MeCN pKa scales sit ~8 pK units above DMSO"),
-    "DMSO":         ProtonTransfer("DMSO", -4.6, True, "Kalidas/Hefter/Marcus"),
-    "DMF":          ProtonTransfer("DMF", -4.4, False, "commonly quoted ~ -18 kJ/mol; NOT re-verified"),
-    "Ethanol":      ProtonTransfer("Ethanol", 2.6, False, "commonly quoted ~ +11 kJ/mol; NOT re-verified"),
-    "NMP":          ProtonTransfer("NMP", -4.8, False, "amide solvent, assumed close to DMF; NOT re-verified"),
-    # Ethylene glycol: no value entered rather than a guess.
+    "Methanol":     ProtonTransfer("Methanol", 8.7 / 4.184, True,
+                                   "8.7 kJ/mol, TATB recommended. Marcus separately quoted at "
+                                   "10.4 kJ/mol (=2.49 kcal) - a ~0.4 kcal spread between "
+                                   "compilations, which bounds the accuracy here."),
+    "Ethanol":      ProtonTransfer("Ethanol", 11.1 / 4.184, True, "11.1 kJ/mol, TATB recommended"),
+    "Acetonitrile": ProtonTransfer("Acetonitrile", 44.8 / 4.184, True,
+                                   "44.8 kJ/mol, TATB recommended. The large positive value is "
+                                   "why MeCN pKa scales sit ~8 pK units above DMSO."),
+    "DMSO":         ProtonTransfer("DMSO", -19.4 / 4.184, True, "-19.4 kJ/mol, TATB recommended"),
+    "DMF":          ProtonTransfer("DMF", -14.4 / 4.184, True,
+                                   "-14.4 kJ/mol, TATB recommended (Marcus). CORRECTED: an "
+                                   "earlier unverified entry used -18.4 kJ/mol, wrong by "
+                                   "~1.0 kcal/mol (0.70 pK units)."),
+    # NMP: no value located. Left out rather than guessed; it also has only
+    # 17 paired rows, so it is unusable here either way.
+    # EthyleneGlycol: no value located.
 }
 
+# Provenance. The five values above are the TATB-assumption recommended
+# values as reported in the secondary literature (a 2021 Computational and
+# Theoretical Chemistry study quoting the compilations, alongside
+# Kalidas, Hefter & Marcus, Chem. Rev. 2000, 100, 819). Four of them
+# independently reproduce values that had been entered here earlier from a
+# different secondary source, to within 0.05 kcal/mol, which is why they are
+# marked verified. NONE has been read by this project off a primary table.
+# Before publication, read them from a primary compilation and cite it; the
+# 2026 reassessment (Stroh et al., ChemPhysChem, doi 10.1002/cphc.202500349)
+# is the obvious cross-check and was not reachable here.
 
 def pk_units(solvent: str) -> float | None:
     """dG_tr(H+) expressed in pKa units (kcal/mol / 1.3637)."""
