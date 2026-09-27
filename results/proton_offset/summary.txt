@@ -66,3 +66,36 @@ two-term model, n=5 solvents, 3 parameters:
 * NMP (n=17) and ethylene glycol (n=18) are too thin to use.
 * The offset is a MEDIAN over this dataset's chemistry; the per-molecule spread
   (IQR 0.6-3.0) is the part no per-solvent constant can capture.
+
+== CORRECTION / AUDIT (added after review) ==
+UNITS. offset is median(pKa_S - pKa_W), in pK units. pk_units() converts the
+literature dG_tr(H+) from kcal/mol to pK units by dividing by 1.3637. BOTH
+sides of the regression are therefore in pK units and the cycle mandates a
+coefficient of 1.00. (Had the literature term been left in kcal/mol the
+mandated value would be 1/1.3637 = 0.733. It was not.) Units check out.
+
+JOINT vs SEQUENTIAL. The 0.99 coefficient DID come from a joint least-squares
+fit of offset on [dG_tr(H+), d_alpha, 1], so it was not pinned by construction.
+BUT the write-up quoted "r2 0.979" beside it, and that number comes from the
+SEQUENTIAL analysis (residual = offset - lit, then regressed on d_alpha), where
+the H+ coefficient IS pinned to 1. Quoting them together conflated two
+analyses. They are now reported separately.
+
+CONFIDENCE INTERVALS (joint fit, n=5, 3 parameters, residual dof=2):
+  dG_tr(H+)   +0.990  SE 0.077  95% CI [+0.658, +1.322]
+  d_alpha     -6.870  SE 0.744  95% CI [-10.073, -3.667]
+  intercept   +1.956  SE 0.668  95% CI [ -0.916,  +4.828]
+The CI on the proton coefficient does NOT exclude 0.733, or much else.
+Freeing that coefficient reduces RSS from 0.920 to 0.913 - the data barely
+constrain it, and 1.0 fits essentially as well as 0.99. So "1.00, exactly as
+the cycle requires" is TECHNICALLY TRUE AND EVIDENTIALLY WEAK. The honest
+statement is that the fitted value is consistent with the mandated 1.00, not
+that it confirms it.
+
+ALPHA vs BINARY. LOO 0.60 (linear in alpha) against 0.83 (binary
+protic/aprotic) on five points is not a distinguishable difference, and the
+only solvent making alpha continuous rather than two-valued is acetonitrile
+(alpha 0.19) - the same high-leverage point that produced the spurious r2 0.60
+in test 2. The data cannot distinguish a continuous alpha dependence from a
+two-state protic/aprotic one. The two-term decomposition survives either way.
+

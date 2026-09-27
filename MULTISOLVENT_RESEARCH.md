@@ -371,10 +371,17 @@ Regressed on d_alpha = alpha(S) - alpha(water), n = 5:
     offset = 0.99 * dG_tr(H+)[pK]  -  6.87 * d_alpha  +  1.96
     r^2 0.979 on the residual; leave-one-solvent-out MAE 1.14
 
-Two things make this more than a curve fit:
-* the coefficient on the proton term is **0.99**, i.e. 1.00 within error,
-  which is exactly what the thermodynamic cycle requires rather than
-  something the fit was free to choose;
+Two things make this more than a curve fit, with one important
+qualification on the first:
+* the coefficient on the proton term is **0.99** from a JOINT fit (not
+  pinned by construction), which is consistent with the 1.00 the
+  thermodynamic cycle requires. But with n = 5 and 3 parameters the 95%
+  CI is **[0.66, 1.32]**, which does not exclude much; freeing the
+  coefficient cuts RSS only from 0.920 to 0.913. Consistent with the
+  mandated value, NOT a confirmation of it. The separately quoted
+  "r^2 0.979" comes from the sequential analysis, where that coefficient
+  IS pinned to 1 - the two should not be cited side by side, and are now
+  reported separately;
 * the same residual shows **no** relation to beta, the H-bond ACCEPTOR
   scale (r^2 0.03). An anion accepts H-bonds, so the solvent's donor
   ability is the physically relevant axis and beta should be irrelevant.
@@ -400,7 +407,32 @@ degrees of freedom, so the current testability rests on the DMF and
 ethanol values flagged UNVERIFIED in `umapka/proton_transfer.py`.
 Perturbing those by +-1 kcal/mol moves the alpha slope over
 [-7.91, -5.93], so sign and scale survive but the coefficient does not.
-Only acetonitrile lies between the protic and aprotic clusters, so the
-linear alpha form is weakly determined; the three aprotics span 2.5 units
-with no alpha variation at all.
+The data cannot distinguish a continuous alpha dependence from a
+two-state protic/aprotic one: LOO 0.60 vs 0.83 on five points is not a
+distinguishable difference, and the only solvent making alpha continuous
+is acetonitrile (alpha 0.19) - the same high-leverage point behind the
+spurious r^2 0.60 in test 2. Say so rather than defend it; the two-term
+decomposition survives either way. The three aprotics span 2.5 units with
+no alpha variation at all, which may be a COMPOSITIONAL artifact rather
+than chemistry (see below).
+
+**Two prerequisites before anything is built on the offset**
+(`dev/offset_confounds.py`):
+* *Charge-type flip.* The leftover is claimed to be mean ANION
+  desolvation, tracking the solvent's H-bond DONOR ability. A cationic
+  acid (BH+ -> B + H+) puts the charge on the reactant as a cation, an
+  H-bond DONOR stabilized by ACCEPTORS, so its leftover should track
+  beta with a structurally different sign - a directional prediction no
+  curve fit yields by accident, and it would double the offsets
+  available for the same parameters. **But D2A-pKa is an anion solvation
+  dataset written HA >> A-, and the family breakdown of its non-water
+  rows contains no cationic-acid category at all.** Check A counts them;
+  if it returns zero, this test needs iBonD or the Leito basicity
+  scales (MeCN, THF), not this dataset.
+* *Compositional confound.* The offset is a median over whatever
+  chemistry each solvent happens to contain, and the set is 60% DMSO. If
+  family composition differs across solvents, pooled offsets differ for
+  non-solvent reasons. Check B recomputes them on a MATCHED set (only
+  reactions measured in water and >= 2 non-water solvents). If the
+  aprotic spread shrinks, the 2.5-unit anomaly was composition.
 
