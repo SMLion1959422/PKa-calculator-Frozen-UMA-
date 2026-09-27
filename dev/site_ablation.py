@@ -23,39 +23,20 @@ import sys
 import numpy as np
 import lightgbm as lgb
 from rdkit import Chem, RDLogger
-from rdkit.Chem import rdFingerprintGenerator as rfg
-from umapka.sites import find_sites, neutralize, ACID_SITES, BASE_SITES
+from umapka.sites import find_sites, neutralize
+from umapka.rdkit_site import global_features, site_features
 
 RDLogger.DisableLog("rdApp.*")
 D = sys.argv[1] if len(sys.argv) > 1 else "mlpka/datasets"
-GROUPS = [g for g, _, _ in ACID_SITES + BASE_SITES]
-NB = 512
-_gen = rfg.GetMorganGenerator(radius=2, fpSize=1024)
 
 
 def glob(mol):
-    return _gen.GetCountFingerprintAsNumPy(mol).astype(float)
+    return global_features(mol)
 
 
 def site_feats(mol, atom, kind):
-    """Counts of atom environments rooted at the site atom, radius 0..3,
-    plus shell element counts by topological distance, plus kind."""
-    out = []
-    for r in range(4):
-        g = rfg.GetMorganGenerator(radius=r, fpSize=NB)
-        v = g.GetCountFingerprintAsNumPy(mol, fromAtoms=[atom]).astype(float)
-        out.append(v)
-    dm = Chem.GetDistanceMatrix(mol)[atom]
-    shells = np.zeros((5, 6))
-    elem = {"C": 0, "N": 1, "O": 2, "S": 3, "F": 4}
-    for a in mol.GetAtoms():
-        d = int(dm[a.GetIdx()])
-        if 1 <= d <= 5:
-            shells[d - 1, elem.get(a.GetSymbol(), 5)] += 1
-    at = mol.GetAtomWithIdx(atom)
-    local = [at.GetIsAromatic(), at.GetTotalNumHs(), at.GetDegree(),
-             at.GetAtomicNum(), kind == "acidic"]
-    return np.concatenate(out + [shells.ravel(), local])
+    """Site-centred features (umapka.rdkit_site); kind "acidic"/"basic"."""
+    return site_features(mol, atom, "acid" if kind == "acidic" else "base")
 
 
 def load(name):

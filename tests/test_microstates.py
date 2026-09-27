@@ -86,3 +86,24 @@ def test_tetrazole_site_is_the_nh():
         s = [x for x in find_sites(mol) if x.group.startswith("tetrazole")][0]
         at = mol.GetAtomWithIdx(s.atom)
         assert at.GetSymbol() == "N" and at.GetTotalNumHs() == 1
+
+
+def test_rdkit_site_predictor_roundtrip(tmp_path):
+    pytest.importorskip("lightgbm")
+    from umapka.rdkit_site import RDKitSitePredictor, pair_features
+    rng = np.random.default_rng(0)
+    smis = ["CC(=O)O", "CCN", "Oc1ccccc1", "CCCN", "OC(=O)c1ccccc1", "CNC"] * 5
+    X, y = [], []
+    for smi in smis:
+        mol = neutralize(Chem.MolFromSmiles(smi))
+        s = find_sites(mol)[0]
+        X.append(pair_features(mol, s.atom, s.kind))
+        y.append((4.5 if s.kind == "acid" else 10.5) + rng.normal(0, 0.1))
+    p = RDKitSitePredictor(n_estimators=20, min_child_samples=2).fit(np.array(X), np.array(y))
+    path = tmp_path / "m.pkl"
+    p.save(str(path))
+    q = RDKitSitePredictor.load(str(path))
+    intr = q.intrinsic_pkas("NCC(=O)O")
+    assert sorted(intr) == [0, 1]
+    m = ms.build_model("NCC(=O)O", intr)
+    assert len(m.macro_pkas()) == 2

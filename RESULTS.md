@@ -110,3 +110,12 @@ training, 0% of AvLiLuMoVe.
 | + site-centred @ annotated site | 0.99 | 0.53 |
 
 UMA site_v3 retrain: pending (`dev/train_site_model.py`, needs GPU + UMA access).
+
+**Multi-pKa benchmark** (`results/benchmark_multiprotic.txt`; same intrinsic
+pKas for both arms, benchmark molecules removed from training):
+
+| set | independent sites | microstate layer |
+|---|---|---|
+| amino acids + polyprotic, 60 pKas | 1.40 | **0.84** (p = 2e-6; pI 0.57 -> 0.38) |
+| SAMPL6, 31 pKas | 1.52 | 1.51 (spurious pKas 26 -> 12) |
+| SAMPL7, 20 pKas | 1.99 | 2.05 (ionic-strength term; 2.00 without) |
