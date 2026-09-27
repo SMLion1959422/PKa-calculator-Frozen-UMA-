@@ -520,3 +520,57 @@ continuous delocalization descriptor rather than discrete families - and
 that, not the charge-flip test, is now the most promising route to a
 directional prediction using data already in hand.
 
+### Continuous delocalization descriptor (`dev/delocalization_test.py`)
+
+The family result (carb -6.92, N-H -6.41, phenol -6.03, C-H -2.84) is in
+the direction anion charge delocalization predicts but has overlapping
+CIs: six categories are too coarse. This replaces the category with a
+continuous per-molecule descriptor.
+
+**The UMA descriptor.** Deprotonation changes UMA's per-atom embeddings;
+WHERE it changes them is where the charge went. Heavy-atom order is
+preserved across the two species by `_ionize_keep_order`, so with
+`w_a = ||h(A-)_a - h(HA)_a||` and `d_a` the bond distance from the site:
+
+    R_deloc = sum_a d_a * w_a / sum_a w_a     mean response radius
+    F_far   = fraction of the response > 2 bonds out
+    IPR     = 1 / sum_a (w_a/sum w)^2         atoms sharing the response
+
+Localized anion -> small values. These need no pKa data to compute, and
+they are the natural thing a frozen embedding can supply that a
+fingerprint cannot.
+
+**Baselines it must beat**: the 6 discrete families; the identical
+construction from Gasteiger charges (free, 1980 empirical model); and a
+conjugated-atom count.
+
+**Tests.** With `y = shift - dG_tr(H+)/RTln10` (the anion transfer term),
+does the descriptor modulate the alpha slope?
+`M0: y = a*d_alpha + b` against `M1: y = (a + c*D)*d_alpha + b + e*D`,
+by nested F-test, plus leave-one-solvent-out and leave-one-family-out.
+
+The decisive one is the **within-family** test: inside a single family
+the label is constant, so a descriptor that merely encodes family
+identity can do nothing, and a real effect should keep its sign across
+families.
+
+**Validation on synthetic data with planted per-family slopes**
+(carb -7.0, phenol -5.0, C-H -2.0): the pooled interaction test fires
+strongly (topo_conj F = 269 with the correct positive sign, meaning more
+conjugated -> shallower slope), family dummies recover the planted
+values (MAE 0.185 vs 0.810 for M0), and - the important part - the
+**within-family test correctly finds NOTHING** (p = 0.3-0.5, signs
+inconsistent), because constant-within-family sensitivity was what was
+planted. It does not manufacture false positives.
+
+Note on LOFO: with few families it is a severe extrapolation and every
+descriptor did worse than M0 on the synthetic set. Beating M0 on LOFO
+would be a strong result; failing it is close to uninformative when the
+families are few. LOSO and within-family are the columns to read.
+
+Run (UMA path needs a GPU; baselines run anywhere):
+
+    python dev/delocalization_test.py zenodo --uma models/model_site_v3.pkl \
+        --cache /content/drive/MyDrive/umapka/deloc_cache.jsonl \
+        --out /content/out/delocalization
+
