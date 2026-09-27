@@ -131,3 +131,18 @@ pKas for both arms, benchmark molecules removed from training):
 | amino acids + polyprotic, 60 pKas | 1.40 | **0.84** (p = 2e-6; pI 0.57 -> 0.38) |
 | SAMPL6, 31 pKas | 1.52 | 1.51 (spurious pKas 26 -> 12) |
 | SAMPL7, 20 pKas | 1.99 | 2.05 (ionic-strength term; 2.00 without) |
+
+**Multi-pKa benchmark with UMA site_v3 intrinsic pKas**
+(`results/benchmark_multiprotic_uma.txt`; microstate layer, MAE):
+
+| set | rdkit_site | **UMA site_v3** | independent sites (UMA) |
+|---|---|---|---|
+| amino acids + polyprotic | 0.84 | **0.67** (pI 0.29, charge@7.4 25/26) | 1.59 |
+| SAMPL6 | 1.51 | **0.94** | 1.06 |
+| SAMPL7 | 2.05 | **1.26** | 1.22 |
+
+UMA cuts SAMPL error by ~38% vs the RDKit site model. With UMA inputs the
+ionic-strength term helps on both SAMPL sets (0.94 vs 1.10 at I=0; 1.26 vs 1.37).
+Still ~2x behind Uni-pKa (0.49 / 0.55). Caveat: the UMA model was not retrained
+with benchmark molecules excluded (3 overlaps, amino-acid set only).
+

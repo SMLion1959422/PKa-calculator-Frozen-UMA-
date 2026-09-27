@@ -176,6 +176,12 @@ What this shows:
 * **On drug-like SAMPL molecules it is neutral for pKa values** but
   removes about half of the spurious pKas predicted in the 2–12 window.
   That matters for charge-state and logD work.
+* **With UMA site_v3 intrinsic pKas** (`results/benchmark_multiprotic_uma.txt`):
+  microstate MAE 0.67 / 0.94 / 1.26 on the three sets (vs 0.84 / 1.51 / 2.05
+  with rdkit_site); the layer's gain on amino acids grows to −0.95
+  (p = 4e-7), and SAMPL6 improves 1.06 → 0.94 (p = 0.05). Here the I = 0.15
+  term *helps* on both SAMPL sets (vs I = 0: 1.10 and 1.37), which is the first
+  supporting evidence for it; the caveat below still applies.
 * **The ionic-strength term is not validated by these data.** Its
   direction is physically right: the SAMPL values are apparent pKas in
   0.15 M KCl (documented for SAMPL6, assumed for SAMPL7), where acids
