@@ -206,6 +206,47 @@ mixed ionic strengths, so `salt=` can double-count about 0.1 unit
 
 ---
 
+## HPLC / LC-MS buffer selection
+
+A pKa is most useful when it answers *what pH should I run at, and what
+buffer holds it there*. `umapka.buffers` derives that from the predicted
+macro pKas:
+
+```bash
+python predict_pka.py "OC(=O)c1ccccc1" --buffer                  # LC-MS (volatile only)
+python predict_pka.py "CCN" --buffer --uv --column hybrid-BEH    # UV; wider pH column
+```
+
+```python
+from umapka.buffers import advise_smiles, recommend, format_report
+advise_smiles(p, "OC(=O)c1ccccc1")["report"]     # predict pKa, then advise
+print(format_report([4.20], 0, ms=True))          # or start from known pKas
+```
+
+Three rules, all standard practice, are applied together:
+
+1. **Reproducibility** — stay ~2 pH units from every pKa, where the analyte
+   is >=99% one species; near a pKa the ionized fraction swings steeply and
+   retention moves with small pH errors.
+2. **Buffer capacity** — a buffer only buffers within ~±1 unit of its *own*
+   pKa. Outside that it is salt.
+3. **Column and detector limits** — silica C18 is pH 2–8, hybrid particles
+   wider; LC-MS needs volatile buffers, so phosphate and citrate are excluded
+   unless you pass `--uv`.
+
+Speciation uses the exact binding polynomial, so polyprotic analytes are
+handled properly rather than one pKa at a time. The output reports the
+tension the rules create rather than hiding it — a basic analyte that needs
+pH 11.5 to run uncharged will be told so, along with which column reaches
+it — and **zwitterions are distinguished from genuinely uncharged
+molecules**, since net charge zero does not imply good reversed-phase
+retention for an amino acid.
+
+Not a replacement for method development: organic modifier, temperature and
+stationary phase are not modelled.
+
+---
+
 ## How it works
 
 1. **Enumerate the titratable site** via SMARTS (after neutralizing —

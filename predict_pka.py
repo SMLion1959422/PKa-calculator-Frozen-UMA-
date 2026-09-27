@@ -24,6 +24,10 @@ Examples
   python predict_pka.py "NCC(=O)O" --macro --pH 7.4 --temperature 37
   #   (add --salt NaCl --molarity 0.15 for physiological ionic strength)
 
+  # HPLC / LC-MS buffer and pH guidance from the predicted pKa
+  python predict_pka.py "CC(=O)O" --buffer
+  python predict_pka.py "CCN" --buffer --uv --column hybrid-BEH
+
   # list what's supported
   python predict_pka.py --list-solvents
 """
@@ -79,6 +83,18 @@ def main():
                     help="temperature in C for --macro (default 25)")
     ap.add_argument("--titration", metavar="CSV",
                     help="with --macro: write net charge vs pH (0-14) to CSV")
+    ap.add_argument("--buffer", action="store_true",
+                    help="recommend an HPLC/LC-MS mobile-phase pH and buffer "
+                        "from the predicted pKa (implies --macro)")
+    ap.add_argument("--uv", action="store_true",
+                    help="with --buffer: UV detection, so non-volatile buffers "
+                        "(phosphate, citrate) are allowed. Default assumes LC-MS.")
+    ap.add_argument("--column", default="silica-C18",
+                    help="with --buffer: column chemistry setting the usable pH "
+                        "range (silica-C18, hybrid-BEH, polymeric)")
+    ap.add_argument("--min-purity", type=float, default=0.95, dest="min_purity",
+                    help="with --buffer: minimum fraction of the analyte in one "
+                        "protonation state (default 0.95)")
     ap.add_argument("--list-solvents", action="store_true")
     ap.add_argument("--list-salts", action="store_true")
     args = ap.parse_args()
@@ -128,6 +144,20 @@ def main():
         return
 
     print(f"\nMolecule : {args.smiles or args.prot}")
+
+    if args.buffer:
+        if not args.smiles:
+            print("ERROR: --buffer requires a SMILES argument."); sys.exit(1)
+        from umapka.buffers import advise_smiles
+        res = advise_smiles(p, args.smiles, ms=not args.uv, column=args.column,
+                            min_purity=args.min_purity,
+                            T_K=args.temperature + 273.15, salt=args.salt,
+                            salt_concentration=args.salt_concentration)
+        print("Predicted macro pKa: "
+              + ", ".join(f"{v:.2f}" for v in res["macro_pKas"]))
+        print()
+        print(res["report"])
+        return
 
     if args.macro:
         if not args.smiles:

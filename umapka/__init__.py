@@ -4,7 +4,7 @@ import importlib
 __version__ = "0.1.0"
 __all__ = ["PkaPredictor", "ACID_SITES", "BASE_SITES",
            "neutralize", "protonation_pair", "solvation",
-           "solvents", "mixtures", "microstates", "sites", "rdkit_site"]
+           "solvents", "mixtures", "microstates", "sites", "rdkit_site", "buffers"]
 
 # `predictor` needs rdkit/ase/fairchem-core; `solvation` needs nothing.
 # Lazy-load so `from umapka.solvation import ...` works even without
@@ -25,7 +25,7 @@ def __getattr__(name):
         return importlib.import_module(".solvation", __name__)
     if name == "solvents":
         return importlib.import_module(".solvents", __name__)
-    if name in ("mixtures", "microstates", "sites", "rdkit_site"):
+    if name in ("mixtures", "microstates", "sites", "rdkit_site", "buffers"):
         return importlib.import_module("." + name, __name__)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
