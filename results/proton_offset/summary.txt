@@ -1,0 +1,68 @@
+# Colab run on the real Nevolianis D2A-pKa data (Zenodo 15604045).
+# 1291 paired rows (same reaction measured in water and in solvent S).
+
+== fitted per-solvent offset (median shift) vs literature dG_tr(H+) ==
+solvent            n   offset            95% CI   spread  lit dG_tr(H+)  lit pK    diff  note
+Acetonitrile     193    16.47    [16.12, 16.69]     2.49     +10.7 kcal   +7.85   +8.62  verified
+DMF              181     7.45      [7.23, 7.56]     1.84      -4.4 kcal   -3.23  +10.68  UNVERIFIED lit value
+DMSO             411     6.02      [5.76, 6.22]     2.98      -4.6 kcal   -3.37   +9.40  verified
+Ethanol          148     5.75      [5.66, 5.82]     0.63      +2.6 kcal   +1.91   +3.85  UNVERIFIED lit value
+EthyleneGlycol    18     3.32      [3.19, 3.47]     0.32            n/a     n/a     n/a
+Methanol         323     4.98      [4.90, 5.03]     0.89      +2.1 kcal   +1.54   +3.45  verified
+NMP               17     4.67      [1.41, 7.58]     6.17      -4.8 kcal   -3.52   +8.19  UNVERIFIED lit value
+
+== TEST 1 (internal): does the offset transfer across chemical families? ==
+weighted mean over 24 (solvent, family) cells, n=1238:
+  offset fitted on OTHER families   MAE 1.65
+  offset fitted on the family itself 0.97   (cheating lower bound)
+  no shift at all                    7.12
+-> the offset captures 89% of the achievable improvement without seeing the
+   target family: (7.12-1.65)/(7.12-0.97). It is largely, not purely, a
+   solvent property. Worst cells: MeCN C-H acids (4.92), DMSO other O-H (3.71),
+   MeOH/EtOH S-H acids (3.06/3.02).
+
+== TEST 2 (external): offset vs literature dG_tr(H+) ==
+  all 6 with a literature value: slope 0.77  intercept +7.41  r2 0.603
+  EXCLUDING acetonitrile:        slope -0.11 intercept +5.62  r2 0.088   <-- no correlation
+  verified values only (n=3):    slope 0.97  intercept +7.21  r2 0.741
+-> the naive claim "the offset IS the proton term" FAILS. The apparent
+   correlation is carried entirely by acetonitrile as a single leverage point.
+   Every fitted offset is LARGER than the proton term, by +3.4 to +10.7.
+
+== decomposition of the residual (offset - proton term) ==
+The residual splits cleanly by the solvent's H-bond DONOR ability:
+  protic  (alpha>0.5): MeOH +3.44, EtOH +3.84            mean +3.64
+  aprotic (alpha<0.5): MeCN +8.62, NMP +8.19, DMSO +9.39, DMF +10.68  mean +9.22
+
+residual vs d_alpha = alpha(S) - alpha(water), n=5 (NMP dropped, n=17):
+  slope -6.90  intercept +1.92  r2 0.979  max residual 0.68
+  vs beta (H-bond ACCEPTOR): r2 0.032  <-- specificity check: no relation
+  linear in alpha    : in-sample maxresid 0.68, LOO MAE 0.60
+  binary protic/aprotic:                  1.11,          0.83
+  constant only      :                    3.76,          3.55
+
+two-term model, n=5 solvents, 3 parameters:
+  offset = +0.99*dG_tr(H+)[pK]  -6.87*d_alpha  +1.96
+  in-sample residuals: MeCN +0.01, DMF +0.65, DMSO -0.63, EtOH -0.22, MeOH +0.19
+  LEAVE-ONE-SOLVENT-OUT MAE 1.14 (MeCN 2.28, DMF 1.29, DMSO 1.28, EtOH 0.39, MeOH 0.46)
+
+  The coefficient on the proton term is 0.99, i.e. 1.00 within error, which is
+  what the thermodynamic cycle requires. The second term is the mean anion
+  transfer free energy: an anion is an H-bond ACCEPTOR, so what matters is the
+  solvent's ability to DONATE H-bonds (alpha), and beta is correctly irrelevant.
+
+== limitations ==
+* 5 solvents, 3 parameters. Using only VERIFIED literature values leaves 3
+  points for 3 parameters, i.e. zero degrees of freedom: the fit's testability
+  currently depends on the DMF and ethanol values that are flagged UNVERIFIED.
+  Re-deriving those from a primary compilation is a prerequisite for publishing.
+* Sensitivity: perturbing the unverified values by +-1 kcal/mol moves the alpha
+  slope over [-7.91, -5.93], so the sign and rough size are robust to that,
+  but the exact coefficient is not.
+* alpha beats a binary protic/aprotic split, but only MeCN (alpha 0.19) lies
+  between the two clusters, so the linear form is weakly determined.
+* The three aprotic solvents span 8.19-10.68 with essentially no alpha variation;
+  that 2.5-unit spread is unexplained.
+* NMP (n=17) and ethylene glycol (n=18) are too thin to use.
+* The offset is a MEDIAN over this dataset's chemistry; the per-molecule spread
+  (IQR 0.6-3.0) is the part no per-solvent constant can capture.

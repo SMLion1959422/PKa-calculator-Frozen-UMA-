@@ -349,3 +349,58 @@ intended; it has NOT yet been run on the real data.
 
 Run:  `python dev/proton_offset_test.py zenodo`
 
+### Result (real data): the offset is the proton term PLUS anion desolvation
+
+`results/proton_offset/summary.txt`. 1291 paired water/solvent rows.
+
+**Test 1 passes.** An offset fitted on other chemical families and applied
+to a held-out family gives MAE 1.65, against 0.97 for the family's own
+offset and 7.12 for no shift: it captures 89% of the achievable gain
+without seeing the target chemistry. The offset is largely a solvent
+property.
+
+**Test 2, as posed, fails.** Regressing offsets on literature dG_tr(H+)
+gives r^2 0.60 over 6 solvents but **r^2 0.09 with acetonitrile removed**.
+The apparent correlation was one leverage point. Every fitted offset is
+larger than the proton term, by +3.4 to +10.7 pK units.
+
+**What the residual is.** It splits by the solvent's H-bond DONOR ability:
++3.6 for protic (MeOH, EtOH), +9.2 for aprotic (MeCN, DMSO, DMF, NMP).
+Regressed on d_alpha = alpha(S) - alpha(water), n = 5:
+
+    offset = 0.99 * dG_tr(H+)[pK]  -  6.87 * d_alpha  +  1.96
+    r^2 0.979 on the residual; leave-one-solvent-out MAE 1.14
+
+Two things make this more than a curve fit:
+* the coefficient on the proton term is **0.99**, i.e. 1.00 within error,
+  which is exactly what the thermodynamic cycle requires rather than
+  something the fit was free to choose;
+* the same residual shows **no** relation to beta, the H-bond ACCEPTOR
+  scale (r^2 0.03). An anion accepts H-bonds, so the solvent's donor
+  ability is the physically relevant axis and beta should be irrelevant.
+  It is.
+
+So the mechanism behind the one-point calibration is not the proton term
+alone: it is proton transfer plus mean anion desolvation, and the second
+piece is predictable from a tabulated solvent property.
+
+**The experiment this sets up.** If the offset is predictable from
+dG_tr(H+) and alpha with ~1.1 error, a new solvent might need *zero*
+measurements rather than one. That is directly testable: substitute the
+predicted offset into the k = 0 arm of the LOSO calibration and compare
+against the measured k = 1 result (1.23 with a measured water pKa, 1.86
+without). NOT YET RUN -- and note that 1.14 is the error on the offset,
+while the pKa error also carries the per-molecule spread (IQR 0.6-3.0),
+so the two are not directly comparable without running it.
+
+**Limitations (all in the results file, and all publication-blocking
+until addressed).** Five solvents and three parameters; restricted to
+VERIFIED literature values it is 3 points and 3 parameters, i.e. zero
+degrees of freedom, so the current testability rests on the DMF and
+ethanol values flagged UNVERIFIED in `umapka/proton_transfer.py`.
+Perturbing those by +-1 kcal/mol moves the alpha slope over
+[-7.91, -5.93], so sign and scale survive but the coefficient does not.
+Only acetonitrile lies between the protic and aprotic clusters, so the
+linear alpha form is weakly determined; the three aprotics span 2.5 units
+with no alpha variation at all.
+
