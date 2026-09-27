@@ -130,3 +130,58 @@ REMAINING STATISTICAL WORK:
    ordinary F-test and is NOT corrected for molecule clustering. It must be
    permuted the same way before being quoted.
 
+===================================================================
+== FINAL RUN: 10000 permutations, set comparison included ==
+===================================================================
+
+== DOES ONE DESCRIPTOR SET ADD OVER ANOTHER? (molecule-level permutation) ==
+base                      added                        F    p_perm
+Gasteiger                 UMA                       41.1    0.0001
+UMA                       Gasteiger                 51.0    0.0001
+conjugation count         UMA                       57.1    0.0001
+UMA                       conjugation count          2.1    0.2100   <-- KEY
+Gasteiger + conjugation   UMA                       34.5    0.0001
+
+THE ASYMMETRY IS DECISIVE:
+  UMA adds over the conjugation count          F 57.1, p 0.0001
+  the conjugation count does NOT add over UMA  F  2.1, p 0.21
+
+UMA SUBSUMES the trivial baseline. The reason topo_conj survived in 4/6
+families is that it captures a SUBSET of what UMA captures, not something
+UMA misses. This was the open question after the 2000-permutation run and
+it is now closed.
+
+UMA also adds over Gasteiger AND the conjugation count TOGETHER (F 34.5,
+p 0.0001) - the strictest test run.
+
+UMA and Gasteiger are mutually complementary (each adds over the other),
+so they encode different partial information; neither subsumes the other.
+
+== MULTIPLE COMPARISONS, now resolvable ==
+At 10000 permutations the p-floor is 1/10001 = 1.0e-4, BELOW the
+Bonferroni threshold for 42 tests at alpha=0.01 (2.38e-4). At 2000
+permutations the floor (5.0e-4) sat above it and the question could not
+be answered.
+
+  Holm, family-wise alpha=0.05: 23/42 survive
+    uma_IPR 5/6 | uma_F 4/6 | uma_R 4/6 | topo_conj 4/6
+    gast_IPR 2/6 | gast_R 2/6 | gast_F 2/6
+  Strict Bonferroni at alpha=0.01: 18/42 tests pass.
+
+== WHAT IS NOW ESTABLISHED ==
+1. A molecule's sensitivity to solvent H-bond donation is predicted by how
+   far its UMA embedding response spreads from the ionization site.
+2. This is NOT the family label: it holds within families, where the label
+   is constant.
+3. This is NOT pseudo-replication: molecule-level permutation confirms it.
+4. This is NOT obtainable from a trivial conjugation count: UMA subsumes
+   that baseline asymmetrically.
+5. It is NOT reducible to Gasteiger charges either, though the two are
+   complementary rather than one dominating.
+6. Carboxylic acids remain the exception (nothing survives), which is
+   chemically expected: carboxylate delocalization barely varies with
+   substituent, so there is no within-family signal to find.
+
+This is the clearest evidence in the project that frozen foundation-model
+embeddings carry chemistry a cheap descriptor does not.
+

@@ -697,3 +697,37 @@ itself, and - the critical one - returns non-significant p on data with
 NO real effect, confirming it handles the clustering that inflated the
 original F-tests.
 
+### FINAL: UMA subsumes the trivial baseline
+
+10000 permutations. The set-comparison asymmetry:
+
+| base | added | F | p_perm |
+|---|---|---|---|
+| conjugation count | **UMA** | **57.1** | **0.0001** |
+| UMA | conjugation count | 2.1 | **0.21** |
+| Gasteiger | UMA | 41.1 | 0.0001 |
+| UMA | Gasteiger | 51.0 | 0.0001 |
+| Gasteiger + conjugation | UMA | 34.5 | 0.0001 |
+
+**UMA adds over the conjugation count; the conjugation count does not add
+over UMA.** The trivial baseline survived in 4/6 families because it
+captures a SUBSET of what UMA captures, not something UMA misses. That was
+the open question and it is now closed. UMA also adds over Gasteiger and
+the conjugation count combined.
+
+UMA and Gasteiger are mutually complementary - each adds over the other -
+so neither subsumes the other; they encode different partial information.
+
+**Multiple comparisons are now resolvable.** At 10000 permutations the
+p-floor (1.0e-4) sits below the Bonferroni threshold for 42 tests at
+alpha=0.01 (2.4e-4); at 2000 permutations it did not. Holm at family-wise
+0.05: 23/42 survive (uma_IPR 5/6 best). Strict Bonferroni at 0.01: 18/42.
+
+**Established, with each alternative explanation excluded by a specific
+test:** a molecule's sensitivity to solvent H-bond donation is predicted
+by how far its UMA embedding response spreads from the ionization site;
+it is not the family label (within-family test), not pseudo-replication
+(molecule-level permutation), not a conjugation count (asymmetric
+subsumption), and not Gasteiger charges (complementary, correlation
++0.226). Carboxylic acids are the chemically expected exception.
+
