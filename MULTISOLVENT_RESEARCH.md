@@ -173,3 +173,65 @@ coupling grows sharply, since W ∝ 1/ε. Diacids in DMSO show very large
 | iBonD (Cheng group) | about 39 solvents, the largest compilation | web access |
 | Tartu (Leito) acidity/basicity scales | high-quality MeCN, DMSO, DCE, heptane scales | literature |
 | Rosés & Bosch series | pKa in MeOH–water and MeCN–water mixtures | literature |
+
+---
+
+## 6. Step 1 experiment: does shift modelling generalize to unseen solvents?
+
+`dev/solvent_shift_experiment.py` tests the hypothesis:
+
+> Can a frozen UMA representation predict solvent-induced pKa **shifts**
+> better than predicting absolute pKa independently in each solvent?
+
+| Model | Formula | Role |
+|---|---|---|
+| M1 | pKa_S = f(solute, ε/78.4, protic) | current formulation, with the same site features as M4 |
+| M1b | pKa_S = f(solute, descriptors) | control: descriptors without the shift formulation |
+| M2 | pKa_S = pKa_W + Δ_S (per solvent and charge type) | simple offset baseline |
+| M3 | pKa_S = pKa_W + Ridge(descriptors, descriptors × pKa_W) | physics-style shift |
+| **M4** | M3 + LightGBM(site features, descriptors, pKa_W) | proposed |
+
+**The key comparison is M2 vs M4.** Splits:
+* random, grouped by solute;
+* **leave-one-solvent-out (the centrepiece)**;
+* leave-one-chemical-family-out;
+* the published train/test split.
+
+Each split runs twice: with the measured water pKa as the anchor, and
+with an in-fold predicted water pKa. Calibration: in each
+leave-one-solvent-out fold, k = 0, 1, 2, 5, 10 measured pKas from the
+held-out solvent shift each model's predictions, and the rest of that
+solvent is scored (20 random draws).
+
+Solvent descriptors (`umapka/solvent_descriptors.py`): 1/ε, Kamlet–Taft
+α, β, π* and E_T(30).
+
+**Status:** the code has been run end to end on synthetic data only, as
+a correctness check. The real Nevolianis data is on Zenodo, which was
+not reachable from the development environment. Run on Colab:
+
+```python
+import requests, zipfile, io, glob
+rec = requests.get("https://zenodo.org/api/records/15604045").json()
+for f in rec["files"]:
+    print(f["key"], f["size"])          # pick the archive holding D2A-pKa.csv
+    if f["key"].endswith(".zip"):
+        zipfile.ZipFile(io.BytesIO(requests.get(f["links"]["self"]).content)).extractall("anion_data")
+data = glob.glob("anion_data/**/D2A-pKa.csv", recursive=True)[0]
+splits = glob.glob("anion_data/**/D2A-pKa-train.csv", recursive=True)[0].rsplit("/", 1)[0]
+print(data, splits)
+```
+```bash
+# RDKit site features (fast, CPU is fine)
+python dev/solvent_shift_experiment.py "$DATA" --split-dir "$SPLITS" --features rdkit
+# site-focused UMA features (GPU; cached and checkpointed, resumable)
+python dev/solvent_shift_experiment.py "$DATA" --split-dir "$SPLITS" --features uma \
+    --cache /content/drive/MyDrive/umapka/solvent_shift_uma_cache.pkl
+```
+Outputs: `results/solvent_shift_{rdkit,uma}/summary.txt`, `per_fold.csv`,
+`calibration.csv`, `calibration_{measured,predicted}.png`.
+
+**How to read it.** The hypothesis is supported only if M4 beats M2
+under leave-one-solvent-out, at k = 0 and at small k, for both water
+anchors. If M2 with one calibration point matches M4, then UMA is not
+what makes new solvents work; the calibration point is.
