@@ -294,3 +294,58 @@ to 1.3 (0.8) with ten measurements.
    Zheng/Green data, the one physical term the current descriptors miss
    (MeCN).
 4. A genuinely external solvent set.
+
+---
+
+## 7. Is the calibration offset the proton transfer term?
+
+The §6 result -- no model predicts an unseen solvent, but one measured
+pKa removes 40-60% of the error -- has a candidate mechanism. Relative
+to water,
+
+    pKa(S) - pKa(W) = [dG_tr(A-) - dG_tr(HA)]/(RT ln10) + dG_tr(H+)/(RT ln10)
+
+where the last term is one constant per solvent. Zheng/Green (J. Comput.
+Chem. 2025) treat exactly this term as a per-solvent regression
+parameter. If the offset we fit from k measured points IS that term,
+the empirical calibration curve becomes a mechanistic claim, and
+acetonitrile's failure is explained in the same breath: its dG_tr(H+)
+is about +10.7 kcal/mol (~ +7.8 pK units), a large outlier, against
+-4.6 for DMSO and +2.1 for methanol.
+
+`dev/proton_offset_test.py` runs two tests:
+
+* **Test 1 (internal, no external data).** Fit the offset on one
+  chemical family, apply it to a different family in the same solvent.
+  A solvent constant transfers; a fitted fudge factor does not. Scored
+  against the family's own offset (cheating lower bound) and against
+  predicting no shift.
+* **Test 2 (external).** Regress the fitted offsets on literature
+  dG_tr(H+) (`umapka/proton_transfer.py`). Slope ~1, intercept ~0
+  supports the identification; reported with and without acetonitrile
+  and over the verified-value subset.
+
+**Validation.** On synthetic data with a KNOWN planted proton constant
+plus a solute-dependent transfer term, the test recovers slope 1.01,
+r^2 0.96 on the verified subset, and correctly reports the leftover mean
+solute term as a nonzero intercept (+3.7). Test 1 correctly flagged the
+family-dependent component that was planted. The diagnostic behaves as
+intended; it has NOT yet been run on the real data.
+
+**Caveats to state in any write-up.**
+* The offset absorbs everything constant per solvent, including the mean
+  solute transfer term over this dataset's chemistry. Agreement is
+  evidence, not proof -- the synthetic test shows exactly this as a
+  nonzero intercept with a correct slope.
+* At most 7 solvents, so the correlation is small-n; NMP (28 rows) and
+  ethylene glycol (22 rows) are thin.
+* Single-ion transfer energies need an extrathermodynamic assumption and
+  compilations disagree. Only Water/MeOH/MeCN/DMSO entries in
+  `umapka/proton_transfer.py` are cross-checked; the rest are flagged
+  UNVERIFIED and must be replaced from a primary compilation (e.g.
+  Kalidas, Hefter & Marcus, Chem. Rev. 2000, 100, 819; or the 2026
+  reassessment, Stroh et al., ChemPhysChem, doi 10.1002/cphc.202500349)
+  before publication.
+
+Run:  `python dev/proton_offset_test.py zenodo`
+

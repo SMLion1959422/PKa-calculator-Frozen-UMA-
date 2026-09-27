@@ -156,3 +156,18 @@ UMA annotated-vs-automatic gap (0.86 vs 1.03) comes from sites the SMARTS
 table does not cover at all. Next lever: SMARTS coverage (aromatic N-H acids,
 amidines/heterocyclic bases), not site ranking.
 
+## 7. Comparison context for the SAMPL numbers
+
+The v3 SAMPL results (SAMPL6 0.94, SAMPL7 1.26, microstate layer on UMA
+site_v3 intrinsic pKas) were described earlier in development as "not
+competitive". That understates them. Uni-pKa remains ahead (~0.49 /
+0.55), but a pretrained-MLIP pipeline using AIMNet2 as a DFT
+replacement, with conformer search and implicit solvation, is reported
+at SAMPL6 0.94 / SAMPL7 1.38 -- comparable, at far higher compute cost
+than frozen embeddings plus trees.
+
+UNVERIFIED: those AIMNet2 numbers were supplied in discussion and could
+not be checked from the development environment (rowansci.com is not
+reachable through the egress proxy). Re-check against the primary source
+before using this comparison anywhere public.
+
