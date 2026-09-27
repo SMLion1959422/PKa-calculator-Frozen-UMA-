@@ -1,0 +1,7 @@
+per-site pKas: rdkit_site
+
+novartis: 275 molecules with >=1 SMARTS site (168 with several)
+  priority      MAE 1.077   picks annotated site 216/275
+  window        MAE 1.077   picks annotated site 216/275
+  window_micro  MAE 1.217   picks annotated site 202/275
+  oracle        MAE 1.049   picks annotated site 263/275

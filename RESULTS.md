@@ -146,3 +146,13 @@ ionic-strength term helps on both SAMPL sets (0.94 vs 1.10 at I=0; 1.26 vs 1.37)
 Still ~2x behind Uni-pKa (0.49 / 0.55). Caveat: the UMA model was not retrained
 with benchmark molecules excluded (3 overlaps, amino-acid set only).
 
+**Automatic site choice** (`dev/site_choice.py`, `results/site_choice_rdkit.txt`):
+the annotated site is the single site ChemAxon Marvin places in pKa 2-12
+(dataset pipeline), so "window" rules were tested. With rdkit_site per-site
+pKas on the 275 Novartis molecules that have a SMARTS site: priority 1.077,
+window 1.077 (identical picks), window on coupled apparent pKas 1.217,
+oracle 1.049. Choosing among detected sites is worth <= 0.03; most of the
+UMA annotated-vs-automatic gap (0.86 vs 1.03) comes from sites the SMARTS
+table does not cover at all. Next lever: SMARTS coverage (aromatic N-H acids,
+amidines/heterocyclic bases), not site ranking.
+
