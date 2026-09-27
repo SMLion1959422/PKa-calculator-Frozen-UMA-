@@ -127,9 +127,11 @@ same splits):
 | **B': trained at annotated sites, SMARTS site at test (fully automatic)** | **1.08** | **0.53** |
 | C: + site-centred features at the annotated site | 0.99 | 0.53 |
 | *reference: shipped UMA model_core_v2* | *1.17* | *0.70* |
+| **UMA site_v3, SMARTS site at test (automatic)** | **1.03** | **0.43** |
+| **UMA site_v3, annotated site** | **0.86** | **0.43** |
 | *reference: Uni-pKa (published)* | *0.81* | – |
 
-**Not yet done here:** the same experiment with UMA features. It needs a
+**UMA result (Colab T4, single run, scaffold CV 0.72):** the rows above in bold. UMA beats the RDKit arms on every split, so the representation adds information once pooled around the site. Originally pending: It needs a
 GPU and access to the gated `facebook/UMA` weights, neither of which was
 available in the environment this was developed in. Run:
 

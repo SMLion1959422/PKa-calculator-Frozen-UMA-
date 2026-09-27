@@ -109,7 +109,19 @@ training, 0% of AvLiLuMoVe.
 | trained @ annotated sites, SMARTS site at test | **1.08** | **0.53** |
 | + site-centred @ annotated site | 0.99 | 0.53 |
 
-UMA site_v3 retrain: pending (`dev/train_site_model.py`, needs GPU + UMA access).
+**UMA site_v3 retrain** (`dev/train_site_model.py`, Colab T4, fairchem-core 2.23,
+5980/5994 training molecules featurized; single run):
+
+| | old UMA model_core_v2 | RDKit site baseline | **UMA site_v3** |
+|---|---|---|---|
+| scaffold 5-fold CV | - | - | 0.72 |
+| Novartis, SMARTS site (automatic) | 1.17 | 1.08 | **1.03** |
+| Novartis, annotated site | - | 0.99 | **0.86** |
+| AvLiLuMoVe | 0.70 | 0.53 | **0.43** |
+
+UMA features beat the RDKit baseline on every split (-13% Novartis annotated,
+-18% AvLiLuMoVe), so the foundation-model representation adds information once it
+is pooled around the site. Remaining Novartis gap is site choice (0.86 vs 1.03).
 
 **Multi-pKa benchmark** (`results/benchmark_multiprotic.txt`; same intrinsic
 pKas for both arms, benchmark molecules removed from training):
