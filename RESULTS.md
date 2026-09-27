@@ -88,3 +88,25 @@ UMA embeddings + LightGBM: 0.711 -- competitive with simpler machinery.
 - UMA embeddings cached; ~30 min to recompute 8k molecules on CPU
 - Data: aqueous (ChEMBL/DataWarrior), external (Novartis, AvLiLuMoVe),
   multi-solvent (Zenodo 15604045, CC BY 4.0)
+
+## 6. v3 methodology results (see METHODOLOGY.md)
+
+**Microstate coupling** (no ML involved; `results/coupling_validation.txt`):
+pKa2 - pKa1 of 17 symmetric diacids/diamines, LOO MAE **0.32**
+(independent sites 1.01, constant gap 0.80). Glycine, held out:
+macro 1.81 / 10.32 (exp 2.35 / 9.78), pI 6.06 (exp 6.06).
+
+**Site assignment** (`results/site_ablation.txt`): SMARTS priority
+disagrees with the annotated site for 22.9% of Novartis, 14.9% of
+training, 0% of AvLiLuMoVe.
+
+**RDKit-only ablation**, same LightGBM:
+
+| arm | Novartis | AvLiLuMoVe |
+|---|---|---|
+| global Morgan | 1.48 | 0.77 |
+| + site-centred @ SMARTS site | 1.15 | 0.59 |
+| trained @ annotated sites, SMARTS site at test | **1.08** | **0.53** |
+| + site-centred @ annotated site | 0.99 | 0.53 |
+
+UMA site_v3 retrain: pending (`dev/train_site_model.py`, needs GPU + UMA access).
