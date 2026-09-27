@@ -210,6 +210,48 @@ def design(df, D):
     return np.c_[a, v * a, v, np.ones(len(df))], v
 
 
+def interaction_F(df, D, y):
+    """F for adding the D*d_alpha interaction (and D) to the d_alpha-only model."""
+    X0, _ = design(df, None)
+    X1, _ = design(df, D)
+    c0, *_ = np.linalg.lstsq(X0, y, rcond=None)
+    c1, *_ = np.linalg.lstsq(X1, y, rcond=None)
+    r0 = float(np.sum((X0 @ c0 - y) ** 2))
+    r1 = float(np.sum((X1 @ c1 - y) ** 2))
+    dfn, dfd = X1.shape[1] - X0.shape[1], len(y) - X1.shape[1]
+    if dfd <= 0 or r1 <= 0:
+        return np.nan, np.nan
+    return ((r0 - r1) / dfn) / (r1 / dfd), c1[1]
+
+
+def permutation_p(df, D, y, n_perm=2000, seed=0):
+    """Molecule-level permutation p-value.
+
+    Each molecule contributes one row per solvent, so rows are NOT
+    independent and the nominal F-test p-value is anticonservative
+    (roughly by the cluster size, ~5). Permuting the descriptor ACROSS
+    MOLECULES - keeping each molecule's value attached to all of its rows,
+    and leaving the solvent structure untouched - gives a valid null for
+    "this molecular property carries no information about the alpha slope".
+    """
+    obs, _ = interaction_F(df, D, y)
+    if not np.isfinite(obs):
+        return np.nan, np.nan
+    per_mol = df.drop_duplicates("rxn").set_index("rxn")[D]
+    rxns = per_mol.index.to_numpy()
+    vals = per_mol.to_numpy()
+    rng = np.random.default_rng(seed)
+    work = df.copy()
+    ge = 0
+    for _ in range(n_perm):
+        mapping = dict(zip(rxns, rng.permutation(vals)))
+        work[D] = work.rxn.map(mapping)
+        f, _ = interaction_F(work, D, y)
+        if np.isfinite(f) and f >= obs:
+            ge += 1
+    return obs, (ge + 1) / (n_perm + 1)
+
+
 def fit_mae(Xtr, ytr, Xte, yte):
     c, *_ = np.linalg.lstsq(Xtr, ytr, rcond=None)
     return float(np.mean(np.abs(Xte @ c - yte)))
@@ -224,6 +266,9 @@ def main():
                          "Optionally pass a model path. Omit entirely for baselines only.")
     ap.add_argument("--cache", default="deloc_cache.jsonl")
     ap.add_argument("--out", default="results/delocalization")
+    ap.add_argument("--n-perm", type=int, default=2000)
+    ap.add_argument("--no-perm", action="store_true",
+                    help="skip the permutation test (it is the slow part)")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
@@ -322,6 +367,34 @@ def main():
             wf.append(dict(family=fam_name, descriptor=D, interaction=cg1[1], F=F, p=pv,
                            rows=len(g)))
             L.append(f"{fam_name:16s}{len(g):6d}{D:>12}{cg1[1]:13.3f}{F:8.1f}{pv:10.2e}")
+    # --- molecule-level permutation p-values for the within-family effects ---
+    if wf and not args.no_perm:
+        L.append("")
+        L.append("== the same, with MOLECULE-LEVEL PERMUTATION p-values ==")
+        L.append("Rows are clustered by molecule (~5 solvents each), so the F-test")
+        L.append("p-values above are anticonservative. Permuting the descriptor across")
+        L.append("molecules gives a valid null. This is the number to quote.")
+        L.append(f"{'family':16s}{'descriptor':>12}{'F':>8}{'p_perm':>10}")
+        perm_rows = []
+        for fam_name, g in complete.groupby("family"):
+            if len(g) < 40 or g.rxn.nunique() < 15 or g.solvent.nunique() < 3:
+                continue
+            for D in cands:
+                if g[D].nunique() < 5:
+                    continue
+                f, pp = permutation_p(g, D, g.y.values, n_perm=args.n_perm)
+                if np.isfinite(f):
+                    perm_rows.append(dict(family=fam_name, descriptor=D, F=f, p_perm=pp,
+                                          n_mol=g.rxn.nunique()))
+                    L.append(f"{fam_name:16s}{D:>12}{f:8.1f}{pp:10.4f}")
+        if perm_rows:
+            P = pd.DataFrame(perm_rows)
+            P.to_csv(f"{args.out}/within_family_permutation.csv", index=False)
+            L.append("")
+            L.append("  families where the effect survives permutation (p<0.01):")
+            for D, g in P.groupby("descriptor"):
+                L.append(f"    {D:12s} {(g.p_perm < 0.01).sum()}/{len(g)}")
+
     if wf:
         W = pd.DataFrame(wf)
         W.to_csv(f"{args.out}/within_family.csv", index=False)

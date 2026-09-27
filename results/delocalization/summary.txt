@@ -1,0 +1,82 @@
+# Colab run, UMA-only predictor (no trained pKa head needed).
+# 1256 paired rows / 565 reactions; 1240 rows / 557 reactions complete-case.
+
+== POOLED interaction test (does D modulate the alpha slope?) ==
+descriptor    interaction        F          p     MAE    LOSO    LOFO
+uma_R               0.493     15.2   3.06e-07   1.375   1.364   2.306
+uma_F               0.432     20.9   1.23e-09   1.356   1.344   2.294
+uma_IPR             1.123    116.8   1.11e-16   1.290   1.297   2.212
+gast_R              0.363     34.9   1.78e-15   1.256   1.282   2.383
+gast_F              0.956     89.8   1.11e-16   1.294   1.285   2.069
+gast_IPR            1.040     95.3   1.11e-16   1.291   1.290   2.191
+topo_conj           0.337     13.9   1.07e-06   1.376   1.379   2.268
+(none, M0)              -        -          -   1.368   1.348   2.208
+family dummies (6 slopes):                      1.068                  [discrete reference]
+
+ALL interaction coefficients are POSITIVE = the predicted direction (more
+delocalized anion -> shallower, less negative alpha slope).
+
+BUT the practical gain is small: MAE 1.368 -> 1.26 at best, and only gast_F
+beats M0 on leave-one-family-out (2.069 vs 2.208). Statistical significance
+here is partly a function of 1240 rows. The discrete family model is still
+better in-sample (1.068) than any single continuous descriptor.
+
+== WITHIN-FAMILY test (family label constant -> cannot be the explanation) ==
+sign consistency and nominal significance across the 6 families:
+  uma_F       + in 6/6, p<0.01 in 5/6
+  uma_IPR     + in 6/6, p<0.01 in 5/6
+  uma_R       + in 6/6, p<0.01 in 4/6
+  gast_R      + in 6/6, p<0.01 in 4/6
+  gast_F      + in 6/6, p<0.01 in 4/6
+  topo_conj   + in 6/6, p<0.01 in 4/6
+  gast_IPR    + in 5/6, p<0.01 in 5/6   <- sign FLIPS on phenols (-0.143)
+
+Only the UMA descriptors are both 6/6 consistent in sign and 5/6 significant.
+
+head-to-head, best UMA vs best Gasteiger F per family:
+family             rows  ~mols     best UMA     best Gasteiger   ratio
+carboxylic acid     655    131   uma_F   11.9   gast_F    6.9     1.7x
+phenol              239     47   uma_F  333.9   gast_F  119.6     2.8x
+N-H acid            172     34   uma_IPR 47.3   gast_IPR 10.4     4.5x
+C-H acid             77     15   uma_R   32.8   gast_R   27.8     1.2x
+S-H acid             50     10   uma_IPR 58.8   gast_R   11.2     5.2x
+other O-H acid       47      9   uma_IPR  8.8   gast_IPR 10.8     0.8x
+-> UMA wins in 5 of 6 families.
+
+== does UMA add over the free Gasteiger version? ==
+  adding UMA on top of Gasteiger: F 24.3, p 4.55e-11
+  correlation between uma_R and gast_R: +0.226
+
+The low correlation matters: UMA is NOT reproducing the empirical charge
+model, it is measuring something substantially different, and that something
+adds signal on top.
+
+== CHEMICALLY COHERENT PATTERN ==
+The effect is weakest in carboxylic acids (655 rows, the LARGEST family) and
+strongest in phenols. That is what the chemistry predicts: a carboxylate's
+charge sits on its two oxygens almost regardless of substituent, so there is
+little within-family variation in delocalization to detect. Phenolates vary
+enormously (p-nitro vs p-methoxy), so there is a lot. The descriptor finds
+signal exactly where chemical variation exists.
+
+== STATISTICAL CAVEAT (important) ==
+Rows are CLUSTERED BY MOLECULE: each molecule contributes up to 5 rows (one
+per solvent), but the F-tests above treat rows as independent. The nominal
+p-values are therefore anticonservative, roughly by the cluster size (~5).
+
+Crude correction (divide F by ~5, refit dof to molecule counts):
+  phenol    uma_F   333.9 -> 66.8   still p=2.7e-10  SURVIVES
+  N-H acid  uma_IPR  47.3 ->  9.5   still p=4.5e-03  SURVIVES
+  S-H acid  uma_IPR  58.8 -> 11.8   p=0.01           borderline
+  C-H acid  uma_R    32.8 ->  6.6   p=0.03           does not survive
+  carbox.   uma_F    11.9 ->  2.4   p=0.13           does not survive
+  other O-H uma_IPR   8.8 ->  1.8   p=0.24           does not survive
+
+So the honest claim is: the effect is established in PHENOLS and N-H ACIDS,
+borderline in S-H, and not established elsewhere. A molecule-level
+permutation test (now implemented, --n-perm) replaces this crude correction
+with a valid p-value and MUST be run before any of this is quoted.
+
+Other limitations: 7 descriptors x 6 families = 42 tests, so a multiple-
+comparison correction is also needed; three families have <20 molecules;
+and LOFO shows the descriptors do not transfer to an unseen family.

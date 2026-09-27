@@ -574,3 +574,49 @@ Run (UMA path needs a GPU; baselines run anywhere):
         --cache /content/drive/MyDrive/umapka/deloc_cache.jsonl \
         --out /content/out/delocalization
 
+### Result: UMA embeddings carry delocalization information that Gasteiger charges do not
+
+`results/delocalization/summary.txt`. 1240 complete-case rows, 557 reactions.
+
+**Pooled test.** Every descriptor fires with the PREDICTED POSITIVE sign
+(more delocalized -> shallower alpha slope). But the practical gain is
+small (MAE 1.368 -> 1.26), only one descriptor beats the null on
+leave-one-family-out, and the discrete family model is still better
+in-sample (1.068). Significance at 1240 rows is not the same as utility.
+
+**Within-family test - the decisive one.** Only the UMA descriptors are
+both 6/6 consistent in sign AND significant in 5/6 families. `gast_IPR`
+flips sign on phenols. Head-to-head, UMA's best beats Gasteiger's best in
+**5 of 6 families**, decisively in phenols (334 vs 120), N-H acids
+(47 vs 10) and S-H acids (59 vs 11).
+
+**UMA adds over Gasteiger**: F 24.3, p 4.6e-11 on top of it, and the two
+correlate only **+0.226** - UMA is not reproducing the empirical charge
+model, it is measuring something different that carries extra signal.
+
+**The pattern is chemically coherent.** The effect is weakest in
+carboxylic acids (the largest family, 655 rows) and strongest in phenols.
+That is what chemistry predicts: a carboxylate's charge sits on its two
+oxygens whatever the substituent, so there is little within-family
+variation to detect, while phenolates vary enormously (p-nitro vs
+p-methoxy). The descriptor finds signal exactly where chemical variation
+exists - which is evidence it is measuring delocalization rather than
+fitting noise.
+
+**Statistical caveat, and it is material.** Rows are clustered by
+molecule (~5 solvents each) but the F-tests treat them as independent, so
+the nominal p-values are anticonservative by roughly the cluster size.
+A crude correction (F/5) leaves the effect established in **phenols**
+(p 2.7e-10) and **N-H acids** (p 4.5e-3), borderline in S-H, and NOT
+established in carboxylic acids, C-H acids or other O-H acids. A
+molecule-level permutation test is now implemented (`--n-perm`, validated
+to return the null correctly on synthetic data) and must be run before any
+of this is quoted. 42 tests also need a multiple-comparison correction.
+
+**Where this leaves the UMA question.** This is the first place in the
+project where frozen UMA embeddings demonstrably supply something a cheap
+alternative does not, for a physically interpretable reason: where the
+per-atom representation changes on deprotonation tracks where the charge
+went, and that is not what Gasteiger charges encode. It is a narrower
+claim than "UMA predicts pKa better", and better supported.
+
