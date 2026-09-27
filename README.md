@@ -28,6 +28,12 @@ gradient-boosted regressor maps those to pKa.
 >    ablation this takes Novartis MAE from 1.48 to 1.08 (fully automatic).
 >    The UMA retrain (`dev/train_site_model.py`) still has to be run on a
 >    GPU.
+>
+> **Benchmark** (`dev/benchmark_multiprotic.py`): on 26 amino acids and
+> polyprotic molecules the microstate layer cuts pKa MAE from 1.40 to
+> 0.84 (p = 2e-6) with the same per-site inputs. On the SAMPL6/SAMPL7
+> blind sets it is neutral, and per-site accuracy (MAE 1.5–2.0) is the
+> bottleneck. See `METHODOLOGY.md` §4.
 
 ---
 
@@ -192,6 +198,11 @@ out["model"].titration_curve()      # net charge / uncharged fraction vs pH
 python predict_pka.py "NCC(=O)O" --macro --pH 7.4 --temperature 37 \
     --salt NaCl --molarity 0.15 --titration glycine.csv
 ```
+
+Caveat: the ionic-strength term assumes the per-site pKas refer to
+I ≈ 0. The trained models learn from literature values measured at
+mixed ionic strengths, so `salt=` can double-count about 0.1 unit
+(METHODOLOGY.md §4).
 
 ---
 

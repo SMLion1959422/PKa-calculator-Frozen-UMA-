@@ -62,7 +62,7 @@ random_split_*.py
 scan_for_solvent.py
 size_correction_test.py
 smoke_test.py
-test_*.py
+/test_*.py
 train_calibrated.py
 train_microstate_nn.py
 train_multisolvent.py

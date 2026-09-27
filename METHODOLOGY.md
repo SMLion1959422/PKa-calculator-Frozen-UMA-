@@ -73,6 +73,7 @@ Reproduce: `python dev/validate_coupling.py` → `results/coupling_validation.tx
 **Conditions.**
 * *Ionic strength*: the Davies γ of each microstate's net charge, plus
   Debye screening e^{−κr} of W. pH is then −log a_H⁺ (electrode pH).
+  This is not yet validated against measured data; see §4.
 * *Temperature*: ε_water(T) (Malmberg–Maryott), RT scaling of W, and
   group rules for the intrinsic pKa. For bases this is Perrin's
   −dpKa/dT = (pKa − 0.9)/T, which reproduces methylammonium's ΔH of
@@ -126,9 +127,11 @@ same splits):
 | **B': trained at annotated sites, SMARTS site at test (fully automatic)** | **1.08** | **0.53** |
 | C: + site-centred features at the annotated site | 0.99 | 0.53 |
 | *reference: shipped UMA model_core_v2* | *1.17* | *0.70* |
+| **UMA site_v3, SMARTS site at test (automatic)** | **1.03** | **0.43** |
+| **UMA site_v3, annotated site** | **0.86** | **0.43** |
 | *reference: Uni-pKa (published)* | *0.81* | – |
 
-**Not yet done here:** the same experiment with UMA features. It needs a
+**UMA result (Colab T4, single run, scaffold CV 0.72):** the rows above in bold. UMA beats the RDKit arms on every split, so the representation adds information once pooled around the site. Originally pending: It needs a
 GPU and access to the gated `facebook/UMA` weights, neither of which was
 available in the environment this was developed in. Run:
 
@@ -142,7 +145,57 @@ against arm B′ above.** If UMA does not beat 1.08 / 0.53, the honest
 conclusion is that the RDKit site-local model should be the default
 featurizer, with UMA kept for ΔE and conformational features only.
 
-## 4. Remaining limitations
+## 4. Benchmark on measured multi-pKa molecules
+
+`dev/benchmark_multiprotic.py` tests the thermodynamic layer against
+experiment. Both arms get the **same** intrinsic per-site pKas, so only
+the layer differs:
+
+* **independent**: sorted site pKas (the pre-v3 `predict_all_sites`),
+  with charge and pI from independent sites;
+* **microstate**: coupled macro pKas, with the measurement's ionic
+  strength applied.
+
+Intrinsic pKas come from the GPU-free `umapka.rdkit_site` model,
+retrained with every benchmark molecule removed. Predicted pKas are
+matched to experimental ones by Hungarian assignment, as in the SAMPL6
+analysis. Output is in `results/benchmark_multiprotic.{txt,csv}`.
+
+| Set (n pKas) | independent MAE | microstate MAE | per-molecule change [95% CI] | notes |
+|---|---|---|---|---|
+| amino acids + polyprotic (60) | 1.40 | **0.84** | **−0.55 [−0.73, −0.38]**, better 24/26, p = 2e-6 | pI MAE 0.57 → 0.38; charge at pH 7.4 correct 25 → 26/26 |
+| SAMPL6 (31) | 1.52 | 1.51 | +0.04 [−0.27, +0.36], n.s. | spurious in-window pKas 26 → 12 |
+| SAMPL7 (20, monoprotic) | 1.99 | 2.05 | +0.06 [+0.02, +0.10], worse 16/20 | entirely from the I = 0.15 term (1.99 → 2.00 at I = 0) |
+
+What this shows:
+
+* **Where sites interact, the layer works.** Zwitterions and polyprotic
+  acids improve substantially and significantly, with the correct
+  charge state for every molecule. A residual +0.26 bias matches the
+  ~0.5 over-coupling seen for glycine in §1.
+* **On drug-like SAMPL molecules it is neutral for pKa values** but
+  removes about half of the spurious pKas predicted in the 2–12 window.
+  That matters for charge-state and logD work.
+* **With UMA site_v3 intrinsic pKas** (`results/benchmark_multiprotic_uma.txt`):
+  microstate MAE 0.67 / 0.94 / 1.26 on the three sets (vs 0.84 / 1.51 / 2.05
+  with rdkit_site); the layer's gain on amino acids grows to −0.95
+  (p = 4e-7), and SAMPL6 improves 1.06 → 0.94 (p = 0.05). Here the I = 0.15
+  term *helps* on both SAMPL sets (vs I = 0: 1.10 and 1.37), which is the first
+  supporting evidence for it; the caveat below still applies.
+* **The ionic-strength term is not validated by these data.** Its
+  direction is physically right: the SAMPL values are apparent pKas in
+  0.15 M KCl (documented for SAMPL6, assumed for SAMPL7), where acids
+  appear ~0.1 more acidic. But the intrinsic model is trained on ChEMBL
+  labels measured at unknown, often similar, ionic strength, so applying
+  the correction on top can double-count. Leave `salt=` unset unless
+  your intrinsic pKas are known to refer to I ≈ 0.
+* **The bottleneck is per-site accuracy on unfamiliar chemotypes.**
+  SAMPL7 has a −1.6 bias (sulfonamides predicted too acidic). For
+  comparison, Uni-pKa reports SAMPL6/SAMPL7 MAE 0.49/0.55. This is the
+  part a better representation, possibly UMA, has to fix. To test it:
+  `python dev/benchmark_multiprotic.py <datasets> --uma models/model_site_v3.pkl`.
+
+## 5. Remaining limitations
 
 * Tautomers beyond proton moves between detected sites are not
   enumerated.
@@ -157,9 +210,9 @@ featurizer, with UMA kept for ΔE and conformational features only.
 
 ## Tests
 
-`python -m pytest tests` (no GPU needed; UMA is stubbed) covers:
+`python -m pytest` (no GPU needed; UMA is stubbed) covers:
 single-site identity, the statistical factor, path independence of the
 macro-pKa sum, the glycine zwitterion, monotone titration, screening
 and activity signs, temperature rules, Debye length, charge sharing,
 the tetrazole site, order-preserving ionization, locality of
-`pool_site`, and the `predict_macro` wiring.
+`pool_site`, the `predict_macro` wiring, and the `rdkit_site` save/load path.

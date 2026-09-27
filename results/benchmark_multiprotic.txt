@@ -1,0 +1,21 @@
+intrinsic pKas: rdkit_site model, 5991 training molecules, 3 removed as benchmark overlaps
+
+amino/polyprotic (I=0): 26/26 molecules scored, 60 experimental pKas
+  independent    MAE 1.40  RMSE 1.58  bias +0.13  matched 60  missing 0  extra-in-window 0
+                 pI MAE 0.57 (n=20)  charge@7.4 correct 25/26
+  microstate     MAE 0.84  RMSE 1.01  bias +0.26  matched 60  missing 0  extra-in-window 0
+                 pI MAE 0.38 (n=20)  charge@7.4 correct 26/26
+  paired per-molecule MAE change (microstate - independent): -0.55 [95% CI -0.73, -0.38], better 24 / worse 2 / same 0, Wilcoxon p=2.09e-06
+
+SAMPL6 (I=0.15): 24/24 molecules scored, 31 experimental pKas
+  independent    MAE 1.52  RMSE 2.12  bias -0.47  matched 31  missing 0  extra-in-window 26
+  microstate     MAE 1.51  RMSE 2.06  bias -0.59  matched 31  missing 0  extra-in-window 12
+  microstate_I0  MAE 1.64  RMSE 2.21  bias -0.63  matched 31  missing 0  extra-in-window 10
+  paired per-molecule MAE change (microstate - independent): +0.04 [95% CI -0.27, +0.36], better 13 / worse 11 / same 0, Wilcoxon p=0.898
+
+SAMPL7 (I=0.15): 20/20 molecules scored, 20 experimental pKas
+  independent    MAE 1.99  RMSE 2.32  bias -1.61  matched 20  missing 0  extra-in-window 1
+  microstate     MAE 2.05  RMSE 2.41  bias -1.72  matched 20  missing 0  extra-in-window 1
+  microstate_I0  MAE 2.00  RMSE 2.33  bias -1.54  matched 20  missing 0  extra-in-window 0
+  paired per-molecule MAE change (microstate - independent): +0.06 [95% CI +0.02, +0.10], better 4 / worse 16 / same 0, Wilcoxon p=0.00824
+

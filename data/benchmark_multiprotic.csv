@@ -1,0 +1,27 @@
+name,smiles,pKas,pI,charge_7_4,group,source
+glycine,NCC(=O)O,2.34;9.60,5.97,0,amino_acid,Lehninger Table 3-1
+alanine,C[C@H](N)C(=O)O,2.34;9.69,6.01,0,amino_acid,Lehninger Table 3-1
+valine,CC(C)[C@H](N)C(=O)O,2.32;9.62,5.97,0,amino_acid,Lehninger Table 3-1
+leucine,CC(C)C[C@H](N)C(=O)O,2.36;9.60,5.98,0,amino_acid,Lehninger Table 3-1
+isoleucine,CC[C@H](C)[C@H](N)C(=O)O,2.36;9.68,6.02,0,amino_acid,Lehninger Table 3-1
+proline,OC(=O)[C@@H]1CCCN1,1.99;10.96,6.48,0,amino_acid,Lehninger Table 3-1
+phenylalanine,N[C@@H](Cc1ccccc1)C(=O)O,1.83;9.13,5.48,0,amino_acid,Lehninger Table 3-1
+serine,N[C@@H](CO)C(=O)O,2.21;9.15,5.68,0,amino_acid,Lehninger Table 3-1
+threonine,C[C@@H](O)[C@H](N)C(=O)O,2.11;9.62,5.87,0,amino_acid,Lehninger Table 3-1
+methionine,CSCC[C@H](N)C(=O)O,2.28;9.21,5.74,0,amino_acid,Lehninger Table 3-1
+asparagine,NC(=O)C[C@H](N)C(=O)O,2.02;8.80,5.41,0,amino_acid,Lehninger Table 3-1
+glutamine,NC(=O)CC[C@H](N)C(=O)O,2.17;9.13,5.65,0,amino_acid,Lehninger Table 3-1
+tryptophan,N[C@@H](Cc1c[nH]c2ccccc12)C(=O)O,2.38;9.39,5.89,0,amino_acid,Lehninger Table 3-1
+aspartic acid,N[C@@H](CC(=O)O)C(=O)O,1.88;3.65;9.60,2.77,-1,amino_acid,Lehninger Table 3-1
+glutamic acid,N[C@@H](CCC(=O)O)C(=O)O,2.19;4.25;9.67,3.22,-1,amino_acid,Lehninger Table 3-1
+lysine,NCCCC[C@H](N)C(=O)O,2.18;8.95;10.53,9.74,1,amino_acid,Lehninger Table 3-1
+arginine,N[C@@H](CCCNC(=N)N)C(=O)O,2.17;9.04;12.48,10.76,1,amino_acid,Lehninger Table 3-1
+histidine,N[C@@H](Cc1cnc[nH]1)C(=O)O,1.82;6.00;9.17,7.59,0,amino_acid,Lehninger Table 3-1
+cysteine,N[C@@H](CS)C(=O)O,1.96;8.18;10.28,5.07,0,amino_acid,Lehninger Table 3-1
+tyrosine,N[C@@H](Cc1ccc(O)cc1)C(=O)O,2.20;9.11;10.07,5.66,0,amino_acid,Lehninger Table 3-1
+beta-alanine,NCCC(=O)O,3.55;10.24,,0,omega_amino_acid,CRC Handbook (dissociation constants of organic acids)
+4-aminobutanoic acid (GABA),NCCCC(=O)O,4.03;10.56,,0,omega_amino_acid,CRC Handbook
+6-aminohexanoic acid,NCCCCCC(=O)O,4.37;10.80,,0,omega_amino_acid,CRC Handbook
+4-aminobenzoic acid,Nc1ccc(C(=O)O)cc1,2.38;4.85,,-1,other,CRC Handbook
+citric acid,OC(=O)CC(O)(CC(=O)O)C(=O)O,3.13;4.76;6.40,,-3,other,CRC Handbook
+L-tartaric acid,O[C@H]([C@@H](O)C(=O)O)C(=O)O,2.98;4.34,,-2,other,CRC Handbook
