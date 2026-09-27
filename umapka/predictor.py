@@ -25,68 +25,15 @@ __all__ = ["PkaPredictor", "ACID_SITES", "BASE_SITES",
            "neutralize", "protonation_pair"]
 
 
-# ---------------------------------------------------------------------
-# Titratable-site definitions (SMARTS, atom index within the match)
-# ---------------------------------------------------------------------
-ACID_SITES = [
-    ("carboxylic_acid", "[CX3](=O)[OX2H1]", 2),
-    ("sulfonic_acid",   "[SX4](=O)(=O)[OX2H1]", 3),
-    ("phosphoric_acid", "[PX4](=O)[OX2H1]", 2),
-    ("tetrazole",       "c1nnn[nH]1", 0),
-    ("tetrazole_2",     "c1nn[nH]n1", 0),
-    ("sulfonamide_2",   "[SX4](=O)(=O)[NX3H1]", 3),
-    ("sulfonamide_1",   "[SX4](=O)(=O)[NX3H2]", 3),
-    ("thiol",           "[SX2H1]", 0),
-    ("hydroxamic_acid",  "[CX3](=O)[NX3][OX2H1]", 3),
-    ("phenol",          "[c][OX2H1]", 1),
-    ("imide",           "[CX3](=O)[NX3H1][CX3]=O", 2),
-]
-
-BASE_SITES = [
-    ("guanidine",  "[NX3][CX3](=[NX2])[NX3]", 2),
-    ("amidine",    "[NX3][CX3]=[NX2]", 2),
-    ("prim_amine", "[NX3;H2;!$(N[C,S]=[O,S,N]);!$(N-a)]", 0),
-    ("sec_amine",  "[NX3;H1;!$(N[C,S]=[O,S,N]);!$(N-a)]", 0),
-    ("tert_amine", "[NX3;H0;!$(N[C,S]=[O,S,N]);!$(N-a)]", 0),
-    # pyridine-like only: aromatic N, no H, NOT adjacent to another
-    # aromatic N (excludes tetrazole/triazole/imidazole ring nitrogens,
-    # which are not basic in this sense)
-    ("pyridine_N", "[nX2;H0;!$(n~n)]", 0),
-    ("aniline",    "[NX3;H2]-a", 0),
-    ("aniline_sec", "[NX3;H1]-a", 0),
-    ("aniline_tert","[NX3;H0]-a", 0),
-]
-
-_NEUTRALIZE_PATTERN = Chem.MolFromSmarts(
-    "[+1!h0!$([*]~[-1,-2,-3,-4]),-1!$([*]~[+1,+2,+3,+4])]"
-)
+# Titratable-site definitions and neutralize() live in umapka.sites
+# (RDKit-only, so the microstate layer works without UMA); re-exported
+# here so `from umapka.predictor import ACID_SITES` keeps working.
+from .sites import ACID_SITES, BASE_SITES, neutralize, find_sites
 
 
 # ---------------------------------------------------------------------
 # molecule utilities
 # ---------------------------------------------------------------------
-def neutralize(mol: Chem.Mol) -> Chem.Mol:
-    """Strip formal charges where chemically reasonable.
-
-    Public pKa datasets frequently store molecules already ionized,
-    which prevents the neutral-form SMARTS above from matching.
-    """
-    rw = Chem.RWMol(mol)
-    for (idx,) in rw.GetSubstructMatches(_NEUTRALIZE_PATTERN):
-        atom = rw.GetAtomWithIdx(idx)
-        charge, n_h = atom.GetFormalCharge(), atom.GetTotalNumHs()
-        atom.SetFormalCharge(0)
-        atom.SetNumExplicitHs(n_h - charge)
-        atom.SetNoImplicit(True)
-        atom.UpdatePropertyCache(strict=False)
-    try:
-        out = rw.GetMol()
-        Chem.SanitizeMol(out)
-        return out
-    except Exception:
-        return mol
-
-
 def _shift_hydrogen(mol, idx, d_h, d_charge):
     """Change hydrogen count and formal charge at one atom.
 
