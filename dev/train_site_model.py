@@ -22,11 +22,18 @@ dataset repo:
     git clone https://github.com/czodrowskilab/Machine-learning-meets-pKa mlpka
     python dev/train_site_model.py mlpka/datasets
 
-Embeddings are cached to site_v3_cache.pkl (resumable).
-Output: models/model_site_v3.pkl, loadable with PkaPredictor(...).
+Embeddings are cached (default site_v3_cache.pkl) and checkpointed
+every 200 molecules, so an interrupted run resumes where it stopped.
+On Google Colab, put the cache and model on Drive so they survive a
+disconnect:
+    from google.colab import drive; drive.mount("/content/drive")
+    python dev/train_site_model.py mlpka/datasets \
+        --cache /content/drive/MyDrive/umapka/site_v3_cache.pkl \
+        --out /content/drive/MyDrive/umapka/model_site_v3.pkl
+Output: models/model_site_v3.pkl by default, loadable with PkaPredictor(...).
 """
+import argparse
 import os
-import sys
 import joblib
 import numpy as np
 import lightgbm as lgb
@@ -38,9 +45,13 @@ from umapka import PkaPredictor
 from umapka.sites import Site, find_sites, neutralize
 
 RDLogger.DisableLog("rdApp.*")
-D = sys.argv[1] if len(sys.argv) > 1 else "mlpka/datasets"
-CACHE = "site_v3_cache.pkl"
-OUT = "models/model_site_v3.pkl"
+ap = argparse.ArgumentParser()
+ap.add_argument("datasets", nargs="?", default="mlpka/datasets")
+ap.add_argument("--cache", default="site_v3_cache.pkl")
+ap.add_argument("--out", default="models/model_site_v3.pkl")
+ARGS = ap.parse_args()
+D, CACHE, OUT = ARGS.datasets, ARGS.cache, ARGS.out
+CHECKPOINT_EVERY = 200
 
 
 def annotated_site(mol, atom, pka_type):
@@ -68,13 +79,33 @@ def rows(name):
     return out
 
 
+_stats = {"new": 0, "failed": 0}
+
+
+def save_cache(cache):
+    os.makedirs(os.path.dirname(os.path.abspath(CACHE)), exist_ok=True)
+    tmp = CACHE + ".tmp"
+    joblib.dump(cache, tmp)
+    os.replace(tmp, CACHE)          # never leave a half-written cache
+
+
 def featurize(pred, cache, key, mol, site):
-    if key not in cache:
+    # None = failed earlier (possibly a setup problem since fixed): retry
+    if cache.get(key) is None:
         try:
             cache[key] = pred.features_site(mol, site)[0]
         except Exception as e:
             cache[key] = None
+            _stats["failed"] += 1
             print(f"  skip {key}: {e}")
+        _stats["new"] += 1
+        if _stats["new"] == 50 and _stats["failed"] == 50:
+            raise RuntimeError("the first 50 molecules all failed - this is a setup "
+                               "problem (UMA / fairchem), not bad molecules; fix it "
+                               "before spending GPU time on the rest")
+        if _stats["new"] % CHECKPOINT_EVERY == 0:
+            save_cache(cache)
+            print(f"  checkpoint: {len(cache)} cached ({_stats['failed']} failed)", flush=True)
     return cache[key]
 
 
@@ -108,7 +139,7 @@ def main():
              "AvLiLuMoVe": rows("AvLiLuMoVe_cleaned_mono_unique_notraindata")}
 
     X, y, keep = matrix(pred, cache, train)
-    joblib.dump(cache, CACHE)
+    save_cache(cache)
     print(f"train rows with features: {len(y)}/{len(train)}")
 
     # scaffold-grouped CV (no Bemis-Murcko core shared across folds)
@@ -127,7 +158,8 @@ def main():
             mae = float(np.abs(model.predict(Xt) - yt).mean())
             metrics[f"{name}_{choose}"] = mae
             print(f"{name:11s} site={choose:16s} MAE {mae:.3f}  (n={len(yt)}/{len(data)})")
-    joblib.dump(cache, CACHE)
+    save_cache(cache)
+    os.makedirs(os.path.dirname(os.path.abspath(OUT)), exist_ok=True)
     joblib.dump({"regressor": model, "calibrator": None, "feature": "site_v3",
                  "metrics": metrics}, OUT)
     print(f"saved -> {OUT}")

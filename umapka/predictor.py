@@ -226,7 +226,16 @@ class PkaPredictor:
         self.device = device
         self._torch = torch
 
-        predictor = pretrained_mlip.get_predict_unit(uma_model, device=device)
+        # "batch" = unmerged, uncompiled model. fairchem >= 2.23 defaults to
+        # merge_mole + torch.compile and silently falls back to a different
+        # model object when the molecule changes, which bypasses the hook
+        # below: every embedding extraction then fails. Older fairchem has
+        # no inference_settings="batch" and needs no change.
+        try:
+            predictor = pretrained_mlip.get_predict_unit(
+                uma_model, device=device, inference_settings="batch")
+        except (TypeError, AssertionError, KeyError):
+            predictor = pretrained_mlip.get_predict_unit(uma_model, device=device)
         self._calc = FAIRChemCalculator(predictor, task_name="omol")
 
         # the model is built lazily; one forward pass materializes it
@@ -245,6 +254,23 @@ class PkaPredictor:
             pass
 
         self._buffer = {}
+        # Fail fast: if the hook cannot see embeddings (e.g. a fairchem
+        # version that compiles the model), stop here rather than
+        # "skipping" every molecule later.
+        probe2 = Atoms("NH3", positions=[[0, 0, 0], [1.01, 0, 0],
+                                         [-0.34, 0.95, 0], [-0.34, -0.47, 0.82]])
+        probe2.info = {"charge": 0, "spin": 1}
+        try:
+            self.embeddings(probe2)
+        except RuntimeError as e:
+            import fairchem.core as _fc
+            raise RuntimeError(
+                "UMA embedding hook captured nothing on a probe molecule "
+                f"(fairchem-core {getattr(_fc, '__version__', '?')}). This "
+                "version probably routes inference around the energy head "
+                "module; the tested version is fairchem-core 2.21.0 "
+                "(requirements-lock.txt)."
+            ) from e
         self.regressor = joblib.load(model_path)
         # "pair_v1": model_core*.pkl, whole-molecule pooled pair features
         # "site_v3": dev/train_site_model.py bundles, site-local pooling
