@@ -26,8 +26,8 @@ ACID_SITES = [
     ("carboxylic_acid", "[CX3](=O)[OX2H1]", 2),
     ("sulfonic_acid",   "[SX4](=O)(=O)[OX2H1]", 3),
     ("phosphoric_acid", "[PX4](=O)[OX2H1]", 2),
-    ("tetrazole",       "c1nnn[nH]1", 0),
-    ("tetrazole_2",     "c1nn[nH]n1", 0),
+    ("tetrazole",       "c1nnn[nH]1", 4),    # site = the N-H (was 0, the ring C)
+    ("tetrazole_2",     "c1nn[nH]n1", 3),
     ("sulfonamide_2",   "[SX4](=O)(=O)[NX3H1]", 3),
     ("sulfonamide_1",   "[SX4](=O)(=O)[NX3H2]", 3),
     ("thiol",           "[SX2H1]", 0),

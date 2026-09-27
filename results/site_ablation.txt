@@ -1,0 +1,21 @@
+site agreement combined_training_datasets_unique 5994 {'same': '85.1%', 'found_not_first': '4.1%', 'not_covered': '3.2%', 'no_site': '7.7%'}
+site agreement novartis_cleaned_mono_unique_notraindata 280 {'same': '77.1%', 'found_not_first': '16.8%', 'not_covered': '4.3%', 'no_site': '1.8%'}
+site agreement AvLiLuMoVe_cleaned_mono_unique_notraindata 123 {'same': '100.0%', 'found_not_first': '0.0%', 'not_covered': '0.0%', 'no_site': '0.0%'}
+
+train n=5994
+arm                                             novartis  AvLiLuMoVe  Nov: agree  disagree
+A global only (SMARTS site irrelevant)             1.476       0.771       1.314     2.024
+B global + site feats @ SMARTS site                1.145       0.587       0.954     1.787
+C global + site feats @ annotated site             0.985       0.529       0.865     1.389
+D site feats only @ annotated site                 0.953       0.554       0.824     1.392
+
+automatic site choice with model C (site feats scored at every SMARTS site):
+  novartis    E1: MAE 1.077  (scored 275/280; molecules with no SMARTS site excluded)
+  novartis    E2: MAE 1.352  (scored 275/280; molecules with no SMARTS site excluded)
+  novartis    E3: MAE 1.505  (scored 275/280; molecules with no SMARTS site excluded)
+  AvLiLuMoVe  E1: MAE 0.529  (scored 123/123; molecules with no SMARTS site excluded)
+  AvLiLuMoVe  E2: MAE 0.530  (scored 123/123; molecules with no SMARTS site excluded)
+  AvLiLuMoVe  E3: MAE 0.670  (scored 123/123; molecules with no SMARTS site excluded)
+  ranker trained on 1607 multi-site molecules
+  novartis    E4 (learned ranker): MAE 1.092  (scored 275/280)
+  AvLiLuMoVe  E4 (learned ranker): MAE 0.529  (scored 123/123)
