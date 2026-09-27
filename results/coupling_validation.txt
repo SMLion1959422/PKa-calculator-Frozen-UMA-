@@ -1,0 +1,29 @@
+fitted D = 9.60   (eps(r) = D*r, capped at bulk water)
+molecule                exp gap    fit    LOO
+malonic acid               2.85   2.35   2.29
+succinic acid              1.43   2.00   2.04
+glutaric acid              1.10   1.52   1.53
+adipic acid                1.00   1.18   1.18
+pimelic acid               0.87   1.11   1.12
+suberic acid               0.97   1.00   1.00
+azelaic acid               0.95   0.96   0.96
+sebacic acid               1.00   0.90   0.90
+fumaric acid               1.41   1.55   1.55
+phthalic acid              2.49   2.49   2.49
+isophthalic acid           1.00   1.29   1.30
+terephthalic acid          1.31   1.09   1.09
+ethylenediamine            3.07   3.25   3.30
+1,3-propanediamine         1.67   2.07   2.10
+1,4-butanediamine          1.17   1.65   1.66
+1,6-hexanediamine          0.78   1.13   1.13
+piperazine                 4.38   3.54   3.22
+
+MAE of pKa2-pKa1 gap (n=17):
+  independent sites (statistical log4 only) 1.01
+  constant gap (LOO mean)                   0.80
+  microstate model, in-sample               0.29
+  microstate model, leave-one-out           0.32
+
+held-out zwitterion check (glycine, exp macro pKa 2.35 / 9.78):
+  independent-site answer: 4.38 / 7.75   model: 1.81 / 10.32   pI 6.06 (exp 6.06)
+  dominant species at pH 7: {'smiles': '[NH3+]CC(=O)[O-]', 'fraction': 0.99951469199868, 'net_charge': 0}

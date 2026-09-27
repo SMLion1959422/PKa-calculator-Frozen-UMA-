@@ -25,68 +25,15 @@ __all__ = ["PkaPredictor", "ACID_SITES", "BASE_SITES",
            "neutralize", "protonation_pair"]
 
 
-# ---------------------------------------------------------------------
-# Titratable-site definitions (SMARTS, atom index within the match)
-# ---------------------------------------------------------------------
-ACID_SITES = [
-    ("carboxylic_acid", "[CX3](=O)[OX2H1]", 2),
-    ("sulfonic_acid",   "[SX4](=O)(=O)[OX2H1]", 3),
-    ("phosphoric_acid", "[PX4](=O)[OX2H1]", 2),
-    ("tetrazole",       "c1nnn[nH]1", 0),
-    ("tetrazole_2",     "c1nn[nH]n1", 0),
-    ("sulfonamide_2",   "[SX4](=O)(=O)[NX3H1]", 3),
-    ("sulfonamide_1",   "[SX4](=O)(=O)[NX3H2]", 3),
-    ("thiol",           "[SX2H1]", 0),
-    ("hydroxamic_acid",  "[CX3](=O)[NX3][OX2H1]", 3),
-    ("phenol",          "[c][OX2H1]", 1),
-    ("imide",           "[CX3](=O)[NX3H1][CX3]=O", 2),
-]
-
-BASE_SITES = [
-    ("guanidine",  "[NX3][CX3](=[NX2])[NX3]", 2),
-    ("amidine",    "[NX3][CX3]=[NX2]", 2),
-    ("prim_amine", "[NX3;H2;!$(N[C,S]=[O,S,N]);!$(N-a)]", 0),
-    ("sec_amine",  "[NX3;H1;!$(N[C,S]=[O,S,N]);!$(N-a)]", 0),
-    ("tert_amine", "[NX3;H0;!$(N[C,S]=[O,S,N]);!$(N-a)]", 0),
-    # pyridine-like only: aromatic N, no H, NOT adjacent to another
-    # aromatic N (excludes tetrazole/triazole/imidazole ring nitrogens,
-    # which are not basic in this sense)
-    ("pyridine_N", "[nX2;H0;!$(n~n)]", 0),
-    ("aniline",    "[NX3;H2]-a", 0),
-    ("aniline_sec", "[NX3;H1]-a", 0),
-    ("aniline_tert","[NX3;H0]-a", 0),
-]
-
-_NEUTRALIZE_PATTERN = Chem.MolFromSmarts(
-    "[+1!h0!$([*]~[-1,-2,-3,-4]),-1!$([*]~[+1,+2,+3,+4])]"
-)
+# Titratable-site definitions and neutralize() live in umapka.sites
+# (RDKit-only, so the microstate layer works without UMA); re-exported
+# here so `from umapka.predictor import ACID_SITES` keeps working.
+from .sites import ACID_SITES, BASE_SITES, neutralize, find_sites
 
 
 # ---------------------------------------------------------------------
 # molecule utilities
 # ---------------------------------------------------------------------
-def neutralize(mol: Chem.Mol) -> Chem.Mol:
-    """Strip formal charges where chemically reasonable.
-
-    Public pKa datasets frequently store molecules already ionized,
-    which prevents the neutral-form SMARTS above from matching.
-    """
-    rw = Chem.RWMol(mol)
-    for (idx,) in rw.GetSubstructMatches(_NEUTRALIZE_PATTERN):
-        atom = rw.GetAtomWithIdx(idx)
-        charge, n_h = atom.GetFormalCharge(), atom.GetTotalNumHs()
-        atom.SetFormalCharge(0)
-        atom.SetNumExplicitHs(n_h - charge)
-        atom.SetNoImplicit(True)
-        atom.UpdatePropertyCache(strict=False)
-    try:
-        out = rw.GetMol()
-        Chem.SanitizeMol(out)
-        return out
-    except Exception:
-        return mol
-
-
 def _shift_hydrogen(mol, idx, d_h, d_charge):
     """Change hydrogen count and formal charge at one atom.
 
@@ -145,6 +92,76 @@ def protonation_pair(smiles: str) -> tuple[str, str]:
                 return Chem.MolToSmiles(pro), Chem.MolToSmiles(mol)
 
     raise RuntimeError(f"no titratable site found in {smiles}")
+
+
+def _ionize_keep_order(mol, idx, kind):
+    """Neutral mol -> its ionized form at site atom ``idx`` WITHOUT
+    reordering atoms (unlike _shift_hydrogen's SMILES round trip), so
+    site atom indices stay valid for site-local pooling. Acid: remove
+    H, charge -1. Base: add H, charge +1."""
+    rw = Chem.RWMol(mol)
+    atom = rw.GetAtomWithIdx(idx)
+    d_h, d_q = (-1, -1) if kind == "acid" else (+1, +1)
+    n_h = atom.GetTotalNumHs() + d_h
+    if n_h < 0:
+        return None
+    atom.SetNumExplicitHs(n_h)
+    atom.SetNoImplicit(True)
+    atom.SetFormalCharge(atom.GetFormalCharge() + d_q)
+    try:
+        out = rw.GetMol()
+        Chem.SanitizeMol(out)
+        return out
+    except Exception:
+        return None
+
+
+def _mol_to_atoms(mol, seed: int = 42) -> Atoms:
+    """RDKit mol -> MMFF-optimized conformer as ASE Atoms. AddHs appends
+    hydrogens after the heavy atoms, so heavy-atom index i in ``mol`` is
+    atom i in the returned Atoms."""
+    charge = Chem.GetFormalCharge(mol)
+    mh = Chem.AddHs(mol)
+    params = AllChem.ETKDGv3()
+    params.randomSeed = seed
+    if AllChem.EmbedMolecule(mh, params) != 0:
+        raise RuntimeError(f"3D embedding failed for {Chem.MolToSmiles(mol)}")
+    try:
+        AllChem.MMFFOptimizeMolecule(mh)
+    except Exception:
+        pass
+    atoms = Atoms(symbols=[a.GetSymbol() for a in mh.GetAtoms()],
+                  positions=mh.GetConformer().GetPositions())
+    atoms.info = {"charge": int(charge), "spin": 1}
+    return atoms
+
+
+def pool_site(emb: np.ndarray, positions: np.ndarray, centre: list[int],
+              sigmas: tuple = (2.5, 5.0)) -> np.ndarray:
+    """Site-centred pooling of per-atom embeddings.
+
+    Global mean pooling dilutes the titrating group's signal as
+    molecules grow (RESULTS.md: Novartis MAE rises from 0.68 below 15
+    heavy atoms to 1.44 above 30). Here the representation is centred on
+    the ionizable group instead:
+
+        [ mean over centre atoms ;
+          Gaussian-weighted means, width sigma, by distance to the centre ;
+          global mean ]
+
+    ``centre`` = the site's charge-bearing atoms (umapka.sites).
+    Per-atom L2 normalization as in ``PkaPredictor.pool``.
+    """
+    norm = emb / (np.linalg.norm(emb, axis=1, keepdims=True) + 1e-9)
+    c = np.asarray(centre, dtype=int)
+    d = np.min(np.linalg.norm(positions[:, None, :] - positions[None, c, :],
+                              axis=2), axis=1)
+    parts = [norm[c].mean(0)]
+    for sg in sigmas:
+        w = np.exp(-(d / sg) ** 2)
+        parts.append((w[:, None] * norm).sum(0) / w.sum())
+    parts.append(norm.mean(0))
+    return np.concatenate(parts)
 
 
 def _smiles_to_atoms(smiles: str, seed: int = 42) -> Atoms:
@@ -229,6 +246,10 @@ class PkaPredictor:
 
         self._buffer = {}
         self.regressor = joblib.load(model_path)
+        # "pair_v1": model_core*.pkl, whole-molecule pooled pair features
+        # "site_v3": dev/train_site_model.py bundles, site-local pooling
+        self.feature_mode = (self.regressor.get("feature", "pair_v1")
+                             if isinstance(self.regressor, dict) else "pair_v1")
 
         # OPTIONAL second regressor for predict_chain() - a DIFFERENT
         # model trained by train_free_energy_model.py on single-state
@@ -260,7 +281,7 @@ class PkaPredictor:
             a = atoms.copy()
             a.calc = self._calc
             self._calc.reset()
-            a.get_potential_energy()
+            self._last_energy = float(a.get_potential_energy())
         finally:
             handle.remove()
         emb = self._buffer.get("h")
@@ -287,6 +308,31 @@ class PkaPredictor:
         h_p = self.pool(self.embeddings(_smiles_to_atoms(protonated)))
         h_d = self.pool(self.embeddings(_smiles_to_atoms(deprotonated)))
         return np.concatenate([h_p, h_d, h_p - h_d]).reshape(1, -1)
+
+    def features_site(self, mol: Chem.Mol, site) -> np.ndarray:
+        """Site-local pair features for one ``umapka.sites.Site`` of the
+        NEUTRAL ``mol``: [h_prot ; h_deprot ; h_prot - h_deprot ; dE ; n_heavy],
+        each h from ``pool_site`` (512-dim), so shape (1, 1538).
+
+        dE is UMA's gas-phase deprotonation energy (eV) from the same
+        forward passes, so it costs nothing. Absolute dE is far too
+        noisy to give pKa by itself (README), but within a functional
+        group it is the classic linear-free-energy descriptor, and the
+        regressor can use it that way.
+        """
+        other = _ionize_keep_order(mol, site.atom, site.kind)
+        if other is None:
+            raise RuntimeError("could not construct the protonation pair")
+        prot, deprot = (mol, other) if site.kind == "acid" else (other, mol)
+        centre = [a for a, _ in site.charge_atoms]
+        pooled, energy = [], []
+        for m in (prot, deprot):
+            atoms = _mol_to_atoms(m)
+            pooled.append(pool_site(self.embeddings(atoms), atoms.get_positions(), centre))
+            energy.append(self._last_energy)
+        h_p, h_d = pooled
+        return np.concatenate([h_p, h_d, h_p - h_d,
+                               [energy[1] - energy[0], mol.GetNumHeavyAtoms()]]).reshape(1, -1)
 
     # -- multi-solvent support -------------------------------------------
     def _load_multisolvent(self):
@@ -377,8 +423,12 @@ class PkaPredictor:
         """
         from . import solvents as _solvents
         info = _solvents.resolve_solvent(solvent)
-        prot, deprot = protonation_pair(smiles)
-        base = self._base_pka(self.features(prot, deprot), solvent)
+        if self.feature_mode == "site_v3":
+            # sites()[0] is the site protonation_pair() would pick
+            base = self.predict_site(smiles, 0, solvent)
+        else:
+            prot, deprot = protonation_pair(smiles)
+            base = self._base_pka(self.features(prot, deprot), solvent)
         if salt is None:
             return {"pKa": base, "base_pKa": base, "solvent": info.name,
                     "correction": {"shift": 0.0, "tier": "none",
@@ -405,24 +455,7 @@ class PkaPredictor:
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
             raise ValueError(f"could not parse SMILES: {smiles}")
-        mol = neutralize(mol)
-        found, seen = [], set()
-        for kind, table in (("acid", ACID_SITES), ("base", BASE_SITES)):
-            for group, smarts, ai in table:
-                patt = Chem.MolFromSmarts(smarts)
-                if patt is None:
-                    continue
-                for match in mol.GetSubstructMatches(patt):
-                    idx = match[ai]
-                    if idx in seen:
-                        continue
-                    seen.add(idx)
-                    found.append({
-                        "index": len(found), "atom": idx, "group": group,
-                        "kind": kind,
-                        "element": mol.GetAtomWithIdx(idx).GetSymbol(),
-                    })
-        return found
+        return [s.as_dict() for s in find_sites(neutralize(mol))]
 
     def predict_site(self, smiles: str, site_index: int,
                       solvent: str = "water",
@@ -447,7 +480,14 @@ class PkaPredictor:
             pair = (other, mol)
         if pair[0] is None or pair[1] is None:
             raise RuntimeError("could not construct the protonation pair")
-        pair_feat = self.features(Chem.MolToSmiles(pair[0]), Chem.MolToSmiles(pair[1]))
+        if self.feature_mode == "site_v3":
+            if info.name != "Water":
+                raise ValueError("site_v3 models are aqueous-only; use a pair_v1 "
+                                 "model for other solvents")
+            pair_feat = self.features_site(mol, find_sites(mol)[site_index])
+        else:
+            pair_feat = self.features(Chem.MolToSmiles(pair[0]),
+                                      Chem.MolToSmiles(pair[1]))
         base = self._base_pka(pair_feat, solvent)
         if salt is None:
             return base
@@ -497,6 +537,60 @@ class PkaPredictor:
         scored = [r for r in results if r["pKa"] is not None]
         unscored = [r for r in results if r["pKa"] is None]
         return sorted(scored, key=lambda r: r["pKa"]) + unscored
+
+    def predict_macro(self, smiles: str, pH: float = 7.4,
+                      solvent: str = "water", T_K: float = 298.15,
+                      salt: str | None = None,
+                      salt_concentration: float | None = None,
+                      site_indices: list[int] | None = None,
+                      return_model: bool = False) -> dict:
+        """Thermodynamically consistent multi-site prediction.
+
+        Every site's intrinsic micro-pKa (others neutral) comes from
+        ``predict_site``; ``umapka.microstates`` then couples the sites
+        electrostatically and sums over all 2^N protonation microstates.
+        Returns macroscopic pKas, each site's apparent pKa, isoelectric
+        point, net charge / uncharged fraction / dominant species at
+        ``pH``, and the conditions used. Unlike ``predict_all_sites``
+        (independent sites) or ``predict_chain`` (greedy walk), the
+        results here are mutually consistent by construction, and this
+        is the method to use for zwitterions and polyprotic molecules.
+
+        Salt enters as ionic strength (Davies activity of each
+        microstate + Debye screening of the coupling), T_K via group
+        van 't Hoff rules. ``site_indices`` restricts the model to
+        chosen sites (default: all detected sites, max 12).
+
+        With ``return_model=True`` the ``MicrostateModel`` is included
+        under "model" for titration curves and species at other pH.
+        """
+        from . import solvents as _solvents
+        from . import microstates as _ms
+        info = _solvents.resolve_solvent(solvent)
+        sites = self.sites(smiles)
+        chosen = site_indices if site_indices is not None else [s["index"] for s in sites]
+        intrinsic, errors = {}, {}
+        for k in chosen:
+            try:
+                intrinsic[k] = self.predict_site(smiles, k, solvent=solvent)
+            except Exception as e:  # keep the other sites
+                errors[k] = str(e)
+        if not intrinsic:
+            raise RuntimeError(f"no site could be scored: {errors}")
+        I = 0.0
+        if salt is not None and salt_concentration:
+            from . import solvation as _solvation
+            I = _solvation.ionic_strength(salt, salt_concentration)
+        model = _ms.build_model(
+            smiles, intrinsic, T_K=T_K, ionic_strength=I,
+            eps_solvent=None if info.name == "Water" else info.eps_raw)
+        out = model.summary(pH)
+        out["solvent"] = info.name
+        if errors:
+            out["unscored_sites"] = errors
+        if return_model:
+            out["model"] = model
+        return out
 
     _PROTONATED_BASE_PATTERN = Chem.MolFromSmarts("[#7+;H1,H2,H3]")
 

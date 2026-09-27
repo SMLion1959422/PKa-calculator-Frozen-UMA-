@@ -9,6 +9,26 @@ embeddings are pulled from the input to UMA's energy head, pooled, and
 combined as paired protonated/deprotonated difference features. A
 gradient-boosted regressor maps those to pKa.
 
+> **v3 methodology (this branch).** Three changes, documented in
+> [`METHODOLOGY.md`](METHODOLOGY.md) and motivated in
+> [`LITERATURE_REVIEW.md`](LITERATURE_REVIEW.md):
+>
+> 1. **Thermodynamic microstate layer** (`predict_macro`, `--macro`).
+>    Per-site predictions are coupled electrostatically and summed over
+>    every protonation microstate, giving macro pKas, pI, titration
+>    curves and species at any pH, temperature and ionic strength. The
+>    coupling is validated independently of the ML model (LOO MAE 0.32
+>    vs 1.01 for independent sites) and fixes zwitterions: for glycine,
+>    pI 6.06 vs 6.06 experimental.
+> 2. **Site assignment.** The SMARTS priority rule featurized the wrong
+>    site, or no site, for 23% of the Novartis set; tetrazoles were never
+>    deprotonated. Training now uses the annotated site.
+> 3. **Site-local representation.** Embeddings are pooled around the
+>    ionizable group, with UMA's ΔE as an extra feature. In an RDKit-only
+>    ablation this takes Novartis MAE from 1.48 to 1.08 (fully automatic).
+>    The UMA retrain (`dev/train_site_model.py`) still has to be run on a
+>    GPU.
+
 ---
 
 ## Scope — please read before using
@@ -20,8 +40,8 @@ first ionization of simple polyprotic acids and bases in that range.
 
 | Case | Behaviour |
 |---|---|
-| pKa₂ and beyond | MAE 1–3 units, frequently non-monotonic |
-| Zwitterionic carboxyls (amino acids) | predicts ~5–8 where truth is ~2.2 |
+| pKa₂ and beyond | MAE 1–3 units, frequently non-monotonic — use `predict_macro` |
+| Zwitterionic carboxyls (amino acids) | `predict()` gives ~5–8 where truth is ~2.2; `predict_macro` couples the sites and recovers the zwitterion |
 | pKa below 2 | systematically over-predicted (no training data there) |
 | pKa above 12 | unreliable (sparse training data) |
 
@@ -158,6 +178,21 @@ reports a `confidence` field and a `warning` when you're outside the
 water-rich composition range that relation is best-established for.
 See `umapka/mixtures.py` for the full derivation and caveats.
 
+### Multi-site, pH, temperature and ionic strength
+
+```python
+out = p.predict_macro("NCC(=O)O", pH=7.4, T_K=310.15,
+                      salt="NaCl", salt_concentration=0.15,
+                      return_model=True)
+out["macro_pKas"], out["isoelectric_point"], out["dominant_species"]
+out["model"].titration_curve()      # net charge / uncharged fraction vs pH
+```
+
+```bash
+python predict_pka.py "NCC(=O)O" --macro --pH 7.4 --temperature 37 \
+    --salt NaCl --molarity 0.15 --titration glycine.csv
+```
+
 ---
 
 ## How it works
@@ -195,23 +230,33 @@ range spans only **412 meV**. Computed ΔG scatter spans **1046–1437 meV**,
 (200–500 meV) equals 3.4–8.5 pKa units.
 
 This is not specific to UMA: it reproduces GFN2-xTB energetics closely
-(r = 0.92 gas, 0.92 solvated), and both fail identically. It is a
-precision wall shared across methods — which is why leading pKa
-predictors train on experimental labels rather than computing from
-energies.
+(r = 0.92 gas, 0.92 solvated), and both fail identically.
+
+**Caveat (v3):** this is true of *absolute* ΔG. Successful QM pKa
+schemes use ΔG *relative to a reference in the same functional group*
+or with a per-group linear fit (Klamt 2003; Jensen 2017; Fujiki 2018 —
+see `LITERATURE_REVIEW.md` §2.1), where the systematic error cancels.
+The v3 site features therefore include UMA's ΔE as one feature for the
+regressor to calibrate per chemotype, not as the prediction itself.
 
 ---
 
 ## Limitations
 
-- **Aqueous only.** No solvent is modelled; aqueous behaviour is learned
-  entirely from the training labels. Will not transfer to other solvents.
-- **Site selection is heuristic.** SMARTS matching covers ~89% of
-  drug-like molecules; primary sulfonamides, N-oxides and weakly basic
-  aryl amines are missed. For multi-site molecules the first match by
-  priority order is used unless you call `predict_site` explicitly.
+- **Solvents.** The aqueous model learns water entirely from labels.
+  Other solvents go through `multisolvent_tuned.pkl` (8 solvents in
+  training), which interpolates but does not extrapolate to unseen
+  solvent classes (RESULTS.md, leave-one-solvent-out).
+- **Site selection is heuristic.** At inference the first SMARTS match
+  by priority is used unless you call `predict_site` explicitly. It
+  disagrees with the dataset's annotated site for 23% of Novartis
+  molecules (`results/site_ablation.txt`); site-annotated training
+  (`dev/train_site_model.py`) reduces but does not remove the cost.
 - **Single conformer** per structure, no ensemble averaging.
-- **Polyprotic support is not validated.** Second ionizations require
+- **Polyprotic support:** `predict_macro` is the supported route (coupled
+  microstates; coupling validated on diacids/diamines, see
+  `METHODOLOGY.md`). The older `predict_chain` notes follow.
+  Second ionizations require
   −1 → −2 transitions, which are absent from the training distribution.
   Public data is thin here (~1,348 polyprotic molecules across both
   source datasets, of which only ~67 yield usable charge−1 transitions),
