@@ -208,24 +208,16 @@ Solvent descriptors (`umapka/solvent_descriptors.py`): 1/ε, Kamlet–Taft
 
 **Status:** the code has been run end to end on synthetic data only, as
 a correctness check. The real Nevolianis data is on Zenodo, which was
-not reachable from the development environment. Run on Colab:
+not reachable from the development environment. Run on Colab; the
+script downloads the Zenodo record itself, once, into `./anion_data`:
 
 ```python
-import requests, zipfile, io, glob
-rec = requests.get("https://zenodo.org/api/records/15604045").json()
-for f in rec["files"]:
-    print(f["key"], f["size"])          # pick the archive holding D2A-pKa.csv
-    if f["key"].endswith(".zip"):
-        zipfile.ZipFile(io.BytesIO(requests.get(f["links"]["self"]).content)).extractall("anion_data")
-data = glob.glob("anion_data/**/D2A-pKa.csv", recursive=True)[0]
-splits = glob.glob("anion_data/**/D2A-pKa-train.csv", recursive=True)[0].rsplit("/", 1)[0]
-print(data, splits)
-```
-```bash
-# RDKit site features (fast, CPU is fine)
-python dev/solvent_shift_experiment.py "$DATA" --split-dir "$SPLITS" --features rdkit
-# site-focused UMA features (GPU; cached and checkpointed, resumable)
-python dev/solvent_shift_experiment.py "$DATA" --split-dir "$SPLITS" --features uma \
+%cd /content/umapka
+!git pull
+# RDKit site features (a few minutes)
+!python dev/solvent_shift_experiment.py zenodo --features rdkit
+# site-focused UMA features (GPU; cached on Drive, resumable)
+!python dev/solvent_shift_experiment.py zenodo --features uma \
     --cache /content/drive/MyDrive/umapka/solvent_shift_uma_cache.pkl
 ```
 Outputs: `results/solvent_shift_{rdkit,uma}/summary.txt`, `per_fold.csv`,

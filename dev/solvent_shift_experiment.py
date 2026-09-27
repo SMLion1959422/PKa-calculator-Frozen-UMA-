@@ -38,9 +38,10 @@ both rooted at the atom that loses the proton, taken from the reaction.
 Data: Nevolianis et al. D2A-pKa (Zenodo 15604045, CC BY 4.0), columns
 reaction_smiles ("HA>>A-"), solvent_smiles, pKa_avg.
 
-    python dev/solvent_shift_experiment.py path/to/D2A-pKa.csv \
-        [--split-dir path/to/data_splits] [--features uma --cache C.pkl] \
-        [--out results/solvent_shift_rdkit]
+    python dev/solvent_shift_experiment.py zenodo [--features uma --cache C.pkl]
+        # "zenodo" downloads record 15604045 into ./anion_data (once) and
+        # finds D2A-pKa.csv and the published split files itself
+    python dev/solvent_shift_experiment.py path/to/D2A-pKa.csv --split-dir path/to/data_splits
 """
 import argparse
 import os
@@ -315,9 +316,45 @@ def calibration_curve(y, preds, rng):
     return {m: {k: float(np.mean(v)) for k, v in ks.items()} for m, ks in res.items()}
 
 
+ZENODO_RECORD = "15604045"
+
+
+def resolve_data(arg, split_dir, dest="anion_data"):
+    """Return (csv path, split dir). ``arg`` may be a CSV path, a directory
+    to search, or "zenodo" to download the record first."""
+    import glob
+    if arg == "zenodo":
+        if not glob.glob(f"{dest}/**/D2A-pKa.csv", recursive=True):
+            import io, zipfile, requests
+            rec = requests.get(f"https://zenodo.org/api/records/{ZENODO_RECORD}", timeout=60).json()
+            os.makedirs(dest, exist_ok=True)
+            for f in rec["files"]:
+                key, url = f["key"], f["links"]["self"]
+                print(f"downloading {key} ({f['size'] / 1e6:.0f} MB)", flush=True)
+                blob = requests.get(url, timeout=600).content
+                if key.endswith(".zip"):
+                    zipfile.ZipFile(io.BytesIO(blob)).extractall(dest)
+                else:
+                    open(os.path.join(dest, key), "wb").write(blob)
+        arg = dest
+    if os.path.isdir(arg):
+        hits = glob.glob(f"{arg}/**/D2A-pKa.csv", recursive=True)
+        if not hits:
+            raise FileNotFoundError(f"no D2A-pKa.csv under {arg}; files there: "
+                                    f"{glob.glob(f'{arg}/**/*.csv', recursive=True)[:20]}")
+        arg = hits[0]
+    if not os.path.isfile(arg):
+        raise FileNotFoundError(f"data file not found: {arg!r}")
+    if split_dir is None:
+        tr = glob.glob(os.path.join(os.path.dirname(arg), "**", "D2A-pKa-train.csv"), recursive=True)
+        split_dir = os.path.dirname(tr[0]) if tr else None
+    print(f"data: {arg}\nsplits: {split_dir}")
+    return arg, split_dir
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("data")
+    ap.add_argument("data", help='CSV path, a directory containing it, or "zenodo"')
     ap.add_argument("--split-dir")
     ap.add_argument("--features", choices=("rdkit", "uma"), default="rdkit")
     ap.add_argument("--cache", default="solvent_shift_uma_cache.pkl")
@@ -327,6 +364,7 @@ def main():
     out_dir = args.out or f"results/solvent_shift_{args.features}"
     os.makedirs(out_dir, exist_ok=True)
 
+    args.data, args.split_dir = resolve_data(args.data, args.split_dir)
     d, info = load(args.data, args.max_rows)
     F = solute_features(d, info, args.features, args.cache)
     d = d[d.rxn.isin(F)].reset_index(drop=True)
