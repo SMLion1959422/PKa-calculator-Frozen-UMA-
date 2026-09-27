@@ -620,3 +620,50 @@ per-atom representation changes on deprotonation tracks where the charge
 went, and that is not what Gasteiger charges encode. It is a narrower
 claim than "UMA predicts pKa better", and better supported.
 
+### Permutation test: the effect is real, and my conservative estimate was wrong
+
+2000 molecule-level permutations, then Holm-Bonferroni over all 42 tests
+(7 descriptors x 6 families) at family-wise alpha = 0.05: **23/42 survive**.
+
+| descriptor | families surviving Holm |
+|---|---|
+| **uma_IPR** | **5/6** |
+| uma_F, uma_R, **topo_conj** | 4/6 |
+| gast_IPR, gast_R, gast_F | 2/6 |
+
+By family, UMA vs Gasteiger vs the trivial conjugation count:
+
+| family | UMA | Gasteiger | topo |
+|---|---|---|---|
+| N-H acid | **3/3** | 0/3 | 1/1 |
+| S-H acid | **3/3** | 0/3 | 1/1 |
+| phenol | 3/3 | 2/3 | 1/1 |
+| C-H acid | 3/3 | 3/3 | 1/1 |
+| other O-H | 1/3 | 1/3 | 0/1 |
+| carboxylic | 0/3 | 0/3 | 0/1 |
+
+**The crude F/5 correction was too conservative.** It predicted only
+phenols and N-H acids would hold; the effect survives much more broadly.
+The within-family result is not pseudo-replication.
+
+**UMA beats Gasteiger decisively** in N-H and S-H acids (3/3 vs 0/3) and
+is the best single descriptor overall (uma_IPR, 5/6).
+
+**But a trivial conjugated-atom count survives in 4/6**, matching two of
+the three UMA descriptors. UMA's edge over the CHEAPEST baseline is real
+but modest counted this way - it is larger measured by effect size
+(phenol F 334 vs 75; S-H F 59 vs 13). Any write-up should report the
+conjugation count as a baseline, not omit it.
+
+**Carboxylic acids: nothing survives**, in the largest family (131
+molecules). Chemically consistent: carboxylate delocalization barely
+varies with substituent, so there is little within-family signal.
+
+**Two pieces of statistical work still outstanding.**
+1. The p values printed as 0.0005 sit AT the permutation floor (1/2001).
+   Strict Bonferroni at alpha=0.01 over 42 tests needs p < 2.4e-4, below
+   that floor - rerun the headline families with `--n-perm 10000`.
+2. The "UMA adds over Gasteiger" test (F 24.3, p 4.6e-11) is still an
+   ordinary F-test, NOT corrected for molecule clustering. It must be
+   permuted the same way before it is quoted anywhere.
+

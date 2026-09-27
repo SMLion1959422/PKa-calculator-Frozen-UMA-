@@ -80,3 +80,53 @@ with a valid p-value and MUST be run before any of this is quoted.
 Other limitations: 7 descriptors x 6 families = 42 tests, so a multiple-
 comparison correction is also needed; three families have <20 molecules;
 and LOFO shows the descriptors do not transfer to an unseen family.
+
+== MOLECULE-LEVEL PERMUTATION RESULTS (2000 permutations) ==
+The clustering caveat above is now resolved properly. The crude F/5
+correction was TOO CONSERVATIVE: the effect survives far more broadly than
+it predicted (it had suggested only phenols and N-H acids would hold).
+
+families surviving at p_perm < 0.01 (uncorrected):
+  uma_F 5/6   uma_IPR 5/6   uma_R 4/6   gast_IPR 4/6
+  topo_conj 4/6   gast_R 3/6   gast_F 2/6
+
+After HOLM-BONFERRONI across all 42 tests (7 descriptors x 6 families),
+family-wise alpha = 0.05: 23/42 survive.
+  uma_IPR   5/6     <- best single descriptor
+  uma_F     4/6
+  uma_R     4/6
+  topo_conj 4/6     <- a trivial conjugated-atom count is competitive
+  gast_IPR  2/6
+  gast_R    2/6
+  gast_F    2/6
+
+by family, how many of each descriptor group survive Holm:
+  family     UMA   Gasteiger  topo
+  C-H        3/3      3/3      1/1
+  N-H        3/3      0/3      1/1    <- UMA only
+  S-H        3/3      0/3      1/1    <- UMA only
+  phenol     3/3      2/3      1/1
+  other O-H  1/3      1/3      0/1
+  carboxylic 0/3      0/3      0/1    <- nothing survives
+
+READING:
+* The within-family effect is REAL. It is not pseudo-replication.
+* UMA is the best descriptor family, and beats Gasteiger decisively in
+  N-H acids and S-H acids (3/3 vs 0/3 surviving Holm).
+* BUT a trivial conjugated-atom count (topo_conj) survives in 4/6, matching
+  two of the three UMA descriptors. UMA's advantage over the CHEAPEST
+  baseline is real but modest when counted this way; it is larger when
+  measured by effect size (phenol F 334 vs 75; S-H F 59 vs 13).
+* Carboxylic acids: nothing survives, in the largest family (131 molecules).
+  Chemically consistent - carboxylate delocalization barely varies with
+  substituent, so there is little within-family signal to find.
+
+REMAINING STATISTICAL WORK:
+1. The p values printed as 0.0005 are AT the permutation floor (1/2001), so
+   resolution is limited. Strict Bonferroni at alpha=0.01 over 42 tests needs
+   p < 2.4e-4, below that floor: rerun the headline families with
+   --n-perm 10000 to resolve.
+2. The "UMA adds over Gasteiger" test (F 24.3, p 4.6e-11) is STILL an
+   ordinary F-test and is NOT corrected for molecule clustering. It must be
+   permuted the same way before being quoted.
+
