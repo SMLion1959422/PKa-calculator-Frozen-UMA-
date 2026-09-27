@@ -67,3 +67,55 @@ def test_uma_descriptor_atom_alignment_with_stub():
     assert out is not None
     r, f_far, ipr = out
     assert np.isfinite(r) and 0 <= f_far <= 1 and ipr >= 1
+
+
+def _toy(n_mol=80, n_solv=5, informative=True, seed=0):
+    """Molecules x solvents, where the alpha slope depends on `truth`.
+    `noise` is an uninformative descriptor; `partial` is a noisy copy of truth."""
+    import pandas as pd
+    rng = np.random.default_rng(seed)
+    truth = rng.normal(size=n_mol)
+    noise = rng.normal(size=n_mol)
+    partial = truth + rng.normal(scale=1.2, size=n_mol)
+    alphas = np.linspace(-1.2, -0.2, n_solv)
+    rows = []
+    for i in range(n_mol):
+        for s, a in enumerate(alphas):
+            slope = -6.0 + (2.0 * truth[i] if informative else 0.0)
+            rows.append(dict(rxn=f"m{i}", solvent=f"s{s}", d_alpha=a,
+                             y=slope * a + rng.normal(scale=0.2),
+                             truth=truth[i], noise=noise[i], partial=partial[i]))
+    return pd.DataFrame(rows)
+
+
+def test_nested_permutation_detects_real_added_information():
+    df = _toy(informative=True)
+    F, p = dl.nested_permutation_p(df, ["noise"], ["truth"], df.y.values, n_perm=300)
+    assert F > 10 and p < 0.01, (F, p)
+
+
+def test_nested_permutation_rejects_noise():
+    """An uninformative descriptor must NOT come out significant."""
+    df = _toy(informative=True)
+    F, p = dl.nested_permutation_p(df, ["truth"], ["noise"], df.y.values, n_perm=300)
+    assert p > 0.05, (F, p)
+
+
+def test_nested_permutation_asymmetry_when_one_subsumes_the_other():
+    """truth subsumes a noisy copy of itself: truth adds over partial,
+    partial adds little over truth."""
+    df = _toy(informative=True)
+    y = df.y.values
+    _, p_truth_adds = dl.nested_permutation_p(df, ["partial"], ["truth"], y, n_perm=300)
+    _, p_partial_adds = dl.nested_permutation_p(df, ["truth"], ["partial"], y, n_perm=300)
+    assert p_truth_adds < 0.01
+    assert p_partial_adds > p_truth_adds
+
+
+def test_permutation_respects_molecule_clustering():
+    """With no real effect, p must be roughly uniform - not driven to 0 by
+    treating the ~5 rows per molecule as independent."""
+    df = _toy(informative=False)
+    ps = [dl.nested_permutation_p(df, ["noise"], ["truth"], df.y.values,
+                                  n_perm=200, seed=s)[1] for s in range(5)]
+    assert min(ps) > 0.01, ps

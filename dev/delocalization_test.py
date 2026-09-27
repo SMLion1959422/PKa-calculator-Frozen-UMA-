@@ -252,6 +252,64 @@ def permutation_p(df, D, y, n_perm=2000, seed=0):
     return obs, (ge + 1) / (n_perm + 1)
 
 
+def multi_design(df, cols):
+    """[d_alpha, D_i*d_alpha ..., D_i ..., 1] for a set of descriptors."""
+    a = df.d_alpha.values
+    blocks = [a[:, None]]
+    z = []
+    for D in cols:
+        v = df[D].values.astype(float)
+        v = (v - np.nanmean(v)) / (np.nanstd(v) + 1e-9)
+        z.append(v)
+    for v in z:
+        blocks.append((v * a)[:, None])
+    for v in z:
+        blocks.append(v[:, None])
+    blocks.append(np.ones((len(df), 1)))
+    return np.hstack(blocks)
+
+
+def nested_F(df, base, extra, y):
+    """F for adding `extra` descriptors on top of `base`."""
+    X0 = multi_design(df, base)
+    X1 = multi_design(df, base + extra)
+    c0, *_ = np.linalg.lstsq(X0, y, rcond=None)
+    c1, *_ = np.linalg.lstsq(X1, y, rcond=None)
+    r0 = float(np.sum((X0 @ c0 - y) ** 2))
+    r1 = float(np.sum((X1 @ c1 - y) ** 2))
+    dfn, dfd = X1.shape[1] - X0.shape[1], len(y) - X1.shape[1]
+    if dfd <= 0 or r1 <= 0:
+        return np.nan
+    return ((r0 - r1) / dfn) / (r1 / dfd)
+
+
+def nested_permutation_p(df, base, extra, y, n_perm=2000, seed=0):
+    """Does `extra` add over `base`, with a molecule-level null?
+
+    The `extra` descriptors are permuted JOINTLY across molecules (one
+    shared permutation, so their mutual correlation is preserved) while
+    `base` stays attached to its own molecules. The null is therefore
+    exactly "the extra descriptors carry no information beyond base",
+    and rows stay clustered by molecule as in the real data.
+    """
+    obs = nested_F(df, base, extra, y)
+    if not np.isfinite(obs):
+        return np.nan, np.nan
+    per_mol = df.drop_duplicates("rxn").set_index("rxn")[extra]
+    rxns = per_mol.index.to_numpy()
+    rng = np.random.default_rng(seed)
+    work = df.copy()
+    ge = 0
+    for _ in range(n_perm):
+        order = rng.permutation(len(rxns))
+        for D in extra:
+            work[D] = work.rxn.map(dict(zip(rxns, per_mol[D].to_numpy()[order])))
+        f = nested_F(work, base, extra, y)
+        if np.isfinite(f) and f >= obs:
+            ge += 1
+    return obs, (ge + 1) / (n_perm + 1)
+
+
 def fit_mae(Xtr, ytr, Xte, yte):
     c, *_ = np.linalg.lstsq(Xtr, ytr, rcond=None)
     return float(np.mean(np.abs(Xte @ c - yte)))
@@ -407,6 +465,36 @@ def main():
                      f"significant (p<0.01) in {(g.p < 0.01).sum()}/{len(g)}")
     else:
         L.append("  (no family had enough rows/solvents for a within-family test)")
+
+    # --- which descriptor set adds over which, with a valid null ---
+    UMA = [c for c in ("uma_R", "uma_F", "uma_IPR") if c in cands]
+    GAST = [c for c in ("gast_R", "gast_F", "gast_IPR") if c in cands]
+    TOPO = [c for c in ("topo_conj",) if c in cands]
+    if UMA and not args.no_perm:
+        L.append("")
+        L.append("== does one descriptor set ADD over another? (molecule-level permutation) ==")
+        L.append("The added set is permuted JOINTLY across molecules; the base set stays")
+        L.append("attached to its molecules. Null = 'the added set carries nothing extra'.")
+        L.append(f"{'base':26s}{'added':22s}{'F':>8}{'p_perm':>10}")
+        pairs = []
+        if GAST:
+            pairs += [(GAST, UMA, "Gasteiger", "UMA"), (UMA, GAST, "UMA", "Gasteiger")]
+        if TOPO:
+            pairs += [(TOPO, UMA, "conjugation count", "UMA"),
+                      (UMA, TOPO, "UMA", "conjugation count")]
+        if GAST and TOPO:
+            pairs += [(GAST + TOPO, UMA, "Gasteiger + conjugation", "UMA")]
+        add_rows = []
+        for base, extra, bn, en in pairs:
+            f, pp = nested_permutation_p(complete, base, extra, y, n_perm=args.n_perm)
+            if np.isfinite(f):
+                add_rows.append(dict(base=bn, added=en, F=f, p_perm=pp))
+                L.append(f"{bn:26s}{en:22s}{f:8.1f}{pp:10.4f}")
+        if add_rows:
+            pd.DataFrame(add_rows).to_csv(f"{args.out}/set_comparison.csv", index=False)
+            L.append("")
+            L.append("  Asymmetry is the informative pattern: if UMA adds over a baseline")
+            L.append("  but that baseline does not add over UMA, UMA subsumes it.")
 
     if "uma_R" in cands and "gast_R" in cands:
         L.append("")

@@ -667,3 +667,33 @@ varies with substituent, so there is little within-family signal.
    ordinary F-test, NOT corrected for molecule clustering. It must be
    permuted the same way before it is quoted anywhere.
 
+### Set-comparison test, clustering-corrected
+
+The "UMA adds over Gasteiger" claim (F 24.3, p 4.6e-11) was an ordinary
+F-test and so carried the same pseudo-replication flaw as the rest. It is
+now replaced by a molecule-level permutation version
+(`nested_permutation_p`): the ADDED descriptor set is permuted JOINTLY
+across molecules - one shared permutation, so its internal correlation
+survives - while the BASE set stays attached to its own molecules. The
+null is exactly "the added set carries nothing beyond the base".
+
+Five comparisons are run, and the informative pattern is **asymmetry**:
+if UMA adds over a baseline but that baseline does not add over UMA, UMA
+subsumes it.
+
+    Gasteiger              -> + UMA
+    UMA                    -> + Gasteiger
+    conjugation count      -> + UMA          <- the important one
+    UMA                    -> + conjugation count
+    Gasteiger + conjugation-> + UMA          <- the strictest
+
+The conjugation-count comparisons matter most, because that trivial
+baseline survived Holm in 4/6 families and is the real competitor.
+
+Validated by four unit tests: the test detects genuinely added
+information, rejects an uninformative descriptor (p > 0.05), reproduces
+the expected asymmetry when one descriptor subsumes a noisy copy of
+itself, and - the critical one - returns non-significant p on data with
+NO real effect, confirming it handles the clustering that inflated the
+original F-tests.
+
