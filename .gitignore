@@ -94,3 +94,6 @@ best_hyperparams*.pkl
 microstate_energy_net.pt
 characterize.py
 train_anion_multisolvent.py
+
+# poster raster preview (regenerate with posters/urtc_poster.py)
+posters/*.png
