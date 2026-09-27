@@ -470,3 +470,53 @@ this project, and methanol alone is quoted at both 8.7 and 10.4 kJ/mol
 (0.4 kcal spread) across compilations. NMP and ethylene glycol have no
 located value and too few rows to use.
 
+### Confound checks (real data): one test ruled out, the decomposition survives, and a replication appears
+
+`results/offset_confounds/summary.txt`.
+
+**Check A - definitive negative.** Zero of 6487 reactions are cationic
+acids. D2A-pKa is `HA >> A-` by construction, so the
+alpha(anionic) -> beta(cationic) sign-flip test cannot be run here at
+all. It needs cationic-acid pKa in the same solvents (iBonD; the Leito
+basicity scales in MeCN/THF).
+
+**Check B - the offsets are not compositionally confounded.**
+Recomputed on a matched set (reactions measured in water and >= 2
+non-water solvents), every offset moves by <= 0.19 pK. The aprotic
+residual spread shrinks only 1.36 -> 1.20. So the between-solvent
+decomposition is not an artifact of family mix.
+
+**But the pooled offset is a coarser object than it looked.** The
+within-solvent spread of the median shift ACROSS families is 3-6 pK
+(DMSO 2.42 to 8.72; MeCN 11.22 to 17.03), several times larger than the
+1.2-1.4 pK between-solvent residual the decomposition explains. This is
+the solute-dependent transfer term the cycle predicts, so it is expected
+rather than anomalous - but it bounds what any single per-solvent
+constant can ever deliver, and it should be stated plainly.
+
+**The compensating find: the alpha dependence REPLICATES within each
+family.** Regressing (family offset - proton term) on d_alpha
+separately:
+
+| family | slope | 95% CI | r^2 | rows |
+|---|---|---|---|---|
+| carboxylic | -6.92 | [-7.92, -5.92] | 0.994 | 655 |
+| N-H | -6.41 | [-7.52, -5.29] | 0.991 | 172 |
+| phenol | -6.03 | [-7.77, -4.29] | 0.976 | 239 |
+| C-H | -2.84 | [-8.12, 2.44] | 0.728 | 74 |
+
+Three chemically independent families give slope -6.0 to -6.9 with
+r^2 > 0.97 on entirely different molecules. That is a real replication
+and is stronger than the pooled 5-point fit, because it shows the
+relationship is not an artifact of pooling heterogeneous chemistry.
+
+**Tentative and underpowered.** The ordering carb > N-H > phenol > C-H
+is the direction anion charge delocalization predicts (carboxylate
+localized on two oxygens; phenolate delocalized into the ring; enolate-
+type C-H anions most delocalized, so least H-bond dependent). But the
+CIs overlap almost entirely and the C-H interval spans zero. Suggestive,
+not established. Testing it properly needs more solvents per family or a
+continuous delocalization descriptor rather than discrete families - and
+that, not the charge-flip test, is now the most promising route to a
+directional prediction using data already in hand.
+

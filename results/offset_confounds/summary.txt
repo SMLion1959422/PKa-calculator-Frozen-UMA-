@@ -1,0 +1,73 @@
+# Colab run on the real D2A-pKa data.
+
+== CHECK A: is the charge-type flip test runnable here? ==
+unique reactions by charge type: {'neutral': 6487}
+cationic acids (BH+ -> B + H+): 0 reactions
+
+DEFINITIVE: zero of 6487 reactions are cationic acids. D2A-pKa is built from
+HA >> A- by construction. The alpha(anionic) -> beta(cationic) sign-flip test
+CANNOT be run on this dataset and needs cationic-acid pKa in the same solvents
+(iBonD; the Leito basicity scales in MeCN/THF).
+
+== CHECK B: are the per-solvent offsets compositionally confounded? ==
+matched set = reactions measured in water and >= 2 non-water solvents (324).
+
+solvent          n_all  off_all  n_match  off_match   delta
+Acetonitrile       193    16.47      174      16.63   +0.16
+DMF                181     7.45      175       7.46   +0.01
+DMSO               411     6.02      272       6.21   +0.19
+Ethanol            148     5.75      144       5.76   +0.01
+EthyleneGlycol      18     3.32       18       3.32   +0.00
+Methanol           323     4.98      250       5.02   +0.03
+NMP                 17     4.67       17       4.67   +0.00
+
+All deltas <= 0.19 pK. The offsets are NOT compositionally confounded, so the
+between-solvent decomposition is not an artifact of family mix.
+Aprotic residual spread (offset - proton term): 1.36 -> 1.20 on the matched
+set, a slight shrink only.
+
+(NOTE: the script originally printed a spread over RAW offsets, which is
+dominated by dG_tr(H+) and meaningless for this question. Fixed to use
+residuals.)
+
+== THE LARGER EFFECT: within-solvent variation across families ==
+per-solvent spread of the median shift ACROSS chemical families:
+  Acetonitrile  11.22 to 17.03   5.81 pK
+  DMF            2.10 to  8.15   6.05 pK
+  DMSO           2.42 to  8.72   6.30 pK
+  Ethanol        2.78 to  5.92   3.14 pK
+  Methanol       2.05 to  5.56   3.51 pK
+
+The between-solvent residual the decomposition explains is ~1.2-1.4 pK.
+The WITHIN-solvent spread across families is 3-6 pK - several times larger.
+A single pooled per-solvent offset is therefore a coarse summary of a broad
+distribution, not a sharp constant. This is the solute-dependent transfer term
+the cycle predicts, so it is expected, but it bounds what any per-solvent
+constant can deliver.
+
+== REPLICATION: the alpha dependence holds WITHIN each family separately ==
+regressing (family offset - proton term) on d_alpha, per family:
+
+family   n_solv    slope              95% CI     r2   rows
+carb          5    -6.92      [-7.92, -5.92]  0.994    655
+N-H           5    -6.41      [-7.52, -5.29]  0.991    172
+phenol        5    -6.03      [-7.77, -4.29]  0.976    239
+C-H           4    -2.84       [-8.12, 2.44]  0.728     74
+othOH         4    -8.24     [-31.92, 15.44]  0.529     62
+S-H                too few cells with >= 5 rows
+
+Three chemically independent families (carboxylic acids, N-H acids, phenols)
+each give slope -6.0 to -6.9 with r2 > 0.97 and non-overlapping-with-zero CIs,
+on entirely different molecules. That is a genuine replication of the alpha
+dependence, and it is stronger evidence than the single pooled 5-point fit:
+the relationship is not an artifact of pooling heterogeneous chemistry.
+
+TENTATIVE, UNDERPOWERED: the ordering carb (-6.92) > N-H (-6.41) >
+phenol (-6.03) > C-H (-2.84) is the direction predicted by anion charge
+delocalization (carboxylate charge localized on two oxygens; phenolate
+delocalized into the ring; C-H acid anions such as enolates highly
+delocalized -> least H-bond dependent). BUT the CIs overlap almost entirely,
+and the C-H interval spans zero. The ordering is suggestive and in the
+predicted direction; it is NOT established. Testing it properly needs more
+solvents per family, or a continuous delocalization descriptor instead of
+discrete families.

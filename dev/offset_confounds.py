@@ -104,12 +104,18 @@ def main():
     B = pd.DataFrame(rows)
     B.to_csv(f"{args.out}/offsets_matched.csv", index=False)
 
+    # Compare RESIDUALS (offset - proton term), not raw offsets: raw offsets are
+    # dominated by dG_tr(H+), which differs by ~11 pK between MeCN and DMSO and
+    # has nothing to do with composition.
+    from umapka.proton_transfer import pk_units as _pk
     aprotic = ["DMSO", "DMF", "NMP", "Acetonitrile"]
     for col, lab in (("off_all", "all paired rows"), ("off_match", "matched set")):
-        v = B[B.solvent.isin(aprotic)][col].dropna()
+        v = [r[col] - _pk(r.solvent) for _, r in B.iterrows()
+             if r.solvent in aprotic and _pk(r.solvent) is not None
+             and not np.isnan(r[col])]
         if len(v) >= 2:
-            L.append(f"  aprotic spread, {lab}: {v.max() - v.min():.2f} pK "
-                     f"(min {v.min():.2f}, max {v.max():.2f}, n={len(v)})")
+            L.append(f"  aprotic RESIDUAL spread (offset - proton term), {lab}: "
+                     f"{max(v) - min(v):.2f} pK (min {min(v):.2f}, max {max(v):.2f}, n={len(v)})")
     L.append("  -> a smaller spread on the matched set means the anomaly was")
     L.append("     compositional, not a property of the solvents.")
     L.append("")
