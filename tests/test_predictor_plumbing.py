@@ -72,3 +72,17 @@ def test_features_site_shape_and_predict_macro():
     assert len(out["sites"]) == 2
     assert out["solvent"] == "Water"
     assert abs(sum(s["fraction"] for s in out["dominant_species"])) <= 1.0 + 1e-9
+
+
+def test_predictor_without_model_gives_embeddings_but_not_predictions():
+    """model_path=None is the UMA-only mode used by the delocalization
+    descriptors: embeddings work, pKa prediction refuses clearly."""
+    import umapka.predictor as P
+    p = _stub()
+    p.regressor = None
+    p.feature_mode = "pair_v1"
+    mol = Chem.MolFromSmiles("CC(=O)O")
+    atoms = P._mol_to_atoms(mol)
+    assert p.embeddings(atoms).shape[0] == atoms.get_global_number_of_atoms()
+    with pytest.raises(RuntimeError, match="UMA only"):
+        p._base_pka(np.zeros((1, 768)), "water")

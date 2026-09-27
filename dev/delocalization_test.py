@@ -50,8 +50,7 @@ Reported as a nested F-test plus leave-one-solvent-out and
 leave-one-family-out MAE, so a descriptor cannot win by memorizing either.
 Molecules are kept whole across folds.
 
-    python dev/delocalization_test.py zenodo --uma models/model_site_v3.pkl \\
-        --cache /content/drive/MyDrive/umapka/deloc_cache.jsonl
+    python dev/delocalization_test.py zenodo --uma      # UMA alone; no trained model
     python dev/delocalization_test.py zenodo            # baselines only, no GPU
 """
 import argparse
@@ -157,9 +156,10 @@ def build(args):
             k, v = json.loads(line)
             cache[k] = v
     pred = None
-    if args.uma:
+    if args.uma is not None:
         from umapka import PkaPredictor
-        pred = PkaPredictor(args.uma, multisolvent_model_path=None)
+        # the descriptors use embeddings() only, so no pKa head is required
+        pred = PkaPredictor(args.uma or None, multisolvent_model_path=None)
 
     rows, new = [], 0
     fh = open(args.cache, "a") if args.cache else None
@@ -218,7 +218,10 @@ def fit_mae(Xtr, ytr, Xte, yte):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("data")
-    ap.add_argument("--uma", help="site_v3 model path; omit for baselines only")
+    ap.add_argument("--uma", nargs="?", const="", default=None,
+                    help="compute the UMA descriptors. Bare --uma loads UMA alone "
+                         "(no trained model needed - only embeddings are used). "
+                         "Optionally pass a model path. Omit entirely for baselines only.")
     ap.add_argument("--cache", default="deloc_cache.jsonl")
     ap.add_argument("--out", default="results/delocalization")
     args = ap.parse_args()

@@ -271,7 +271,11 @@ class PkaPredictor:
                 "module; the tested version is fairchem-core 2.21.0 "
                 "(requirements-lock.txt)."
             ) from e
-        self.regressor = joblib.load(model_path)
+        # model_path=None loads UMA only, with no pKa head. Useful when all
+        # you want is embeddings() or features_site() - e.g. the
+        # delocalization descriptors in dev/delocalization_test.py. Any
+        # predict* call then raises rather than silently misbehaving.
+        self.regressor = joblib.load(model_path) if model_path else None
         # "pair_v1": model_core*.pkl, whole-molecule pooled pair features
         # "site_v3": dev/train_site_model.py bundles, site-local pooling
         self.feature_mode = (self.regressor.get("feature", "pair_v1")
@@ -377,6 +381,13 @@ class PkaPredictor:
             self._multisolvent_bundle = joblib.load(self._multisolvent_model_path)
         return self._multisolvent_bundle
 
+    def _require_regressor(self):
+        if self.regressor is None:
+            raise RuntimeError(
+                "this PkaPredictor was built with model_path=None (UMA only), "
+                "so it can produce embeddings but not pKa predictions. "
+                "Construct it with a model path to predict.")
+
     def _base_pka(self, pair_feat: np.ndarray, solvent: str) -> float:
         """Route a 768-dim pair feature through the right regressor for
         `solvent`. Water uses the dedicated aqueous regressor
@@ -386,6 +397,7 @@ class PkaPredictor:
         EXACT encoding tune_multisolvent.py used (see umapka.solvents -
         NOT raw physical constants).
         """
+        self._require_regressor()
         from . import solvents as _solvents
         info = _solvents.resolve_solvent(solvent)
 
