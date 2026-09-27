@@ -227,3 +227,70 @@ Outputs: `results/solvent_shift_{rdkit,uma}/summary.txt`, `per_fold.csv`,
 under leave-one-solvent-out, at k = 0 and at small k, for both water
 anchors. If M2 with one calibration point matches M4, then UMA is not
 what makes new solvents work; the calibration point is.
+
+### Results (Colab, real data; `results/solvent_shift_{rdkit,uma}/summary.txt`)
+
+Data: 8,220 of 8,223 D2A-pKa rows; 6,481 reactions. The non-water rows
+are 60% DMSO and 13% MeCN; NMP (28) and ethylene glycol (22) are tiny.
+1,291 non-water rows have a measured water pKa for the same reaction.
+
+**1. The hypothesis, as stated, is not supported.** Under
+leave-one-solvent-out with no calibration (k = 0), no model predicts an
+unseen solvent usefully (MAE 2.8–4.9), and M4 does not beat M2 (UMA,
+measured anchor: 2.99 vs 3.06; predicted anchor: 4.02 vs 3.95). The
+shift formulation brings no advantage for unseen solvents.
+Acetonitrile is unpredictable by every model (7.5–12 units): its
+proton-solvation behaviour lies outside the other seven solvents.
+
+**2. Continuous solvent descriptors do help the absolute model.**
+M1 → M1b under LOSO: 3.55 → 2.77 (UMA, measured) and 4.10 → 3.38
+(predicted). DMF drops from 8.8 to 0.9 because the descriptors place it
+next to DMSO.
+
+**3. One calibration measurement is the dominant effect.** Mean over
+held-out solvents, UMA features:
+
+| k measured pKas in the new solvent | 0 | 1 | 2 | 5 | 10 |
+|---|---|---|---|---|---|
+| M1b, water pKa unknown (realistic) | 3.22 | 1.86 | 1.57 | 1.44 | 1.31 |
+| M1b, water pKa measured | 3.20 | 1.23 | 1.02 | 0.92 | 0.81 |
+| M2 offset only, water pKa measured | 3.36 | 1.82 | 1.65 | 1.47 | 1.36 |
+
+A single point removes about 40–60% of the error. After calibration,
+the learned models beat the pure offset by about 0.5–0.6
+(1.23 vs 1.82 at k = 1), so the solute-specific response to the
+solvent is real and learnable.
+
+**4. What UMA adds, compared with RDKit site features on the same splits:**
+* Much better absolute and aqueous chemistry. Random split, M1: 1.01 →
+  0.72. Calibrated M1b at k = 10: 1.07 → 0.81 (measured anchor) and
+  1.63 → 1.31 (predicted).
+* **No gain for the shift given a measured water pKa**: M4 is identical
+  (k = 1: 1.27 vs 1.28; k = 10: 0.90 vs 0.90).
+
+UMA therefore improves the intrinsic chemistry, not the solvent
+response.
+
+**5. Anchoring to measured water pKa is what generalizes across
+chemical families.** Leave-one-family-out, measured anchor: M2 offset
+1.67 vs absolute M1 2.41–2.70. The trivial model wins here.
+
+**6. The published split is not comparable to the 0.58 of Nevolianis
+et al.** Only non-water rows are scored (n = 239, or n = 112 with a
+measured water pKa). UMA M1b scores 0.70 there.
+
+**Revised claim, supported by these data:** a model cannot yet predict
+pKa in a solvent it has never seen, but with continuous descriptors,
+site-focused UMA features and **one** measured pKa in the new solvent,
+error falls from about 3.2 to 1.9 (1.2 if the water pKa is known), and
+to 1.3 (0.8) with ten measurements.
+
+**Next:**
+1. Per-solvent calibration curves (in `calibration.csv`), so that MeCN
+   does not dominate the mean.
+2. Repeat with several seeds.
+3. Add a proton-solvation descriptor, such as the solvent's
+   autoprotolysis constant or a transfer free energy of H⁺ from the
+   Zheng/Green data, the one physical term the current descriptors miss
+   (MeCN).
+4. A genuinely external solvent set.

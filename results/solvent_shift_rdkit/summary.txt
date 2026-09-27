@@ -1,0 +1,22 @@
+# Colab run, --features rdkit, Nevolianis D2A-pKa (Zenodo 15604045); 8220/8223 rows site-located
+== LOFO | measured ==  M1 2.70  M1b 2.60  M2 1.67  M3 2.12  M4 1.85  water-only 7.00  (n=1291)
+== LOFO | predicted == M1 3.70  M1b 3.72  M2 4.50  M3 4.57  M4 3.80  water-only 8.97  (n=4424)
+== LOSO | measured ==  M1 3.57  M1b 2.90  M2 3.06  M3 3.30  M4 2.95  water-only 7.00  (n=1291)
+== LOSO | predicted == M1 4.32  M1b 3.72  M2 4.47  M3 5.89  M4 4.87  water-only 8.72  (n=4424)
+== published | measured ==  M1 0.81  M1b 0.67  M2 0.84  M3 1.30  M4 0.41  (n=112)
+== published | predicted == M1 1.19  M1b 1.14  M2 2.38  M3 2.55  M4 1.17  (n=239)
+== random grouped | measured ==  M1 1.01  M1b 0.99  M2 1.31  M3 1.50  M4 0.58  (n=1291)
+== random grouped | predicted == M1 1.37  M1b 1.36  M2 3.31  M3 3.31  M4 1.35  (n=4424)
+
+LOSO per solvent (measured | predicted), M1 / M1b / M2 / M3 / M4 / water-only
+Acetonitrile   9.40 11.63 10.32 7.54 7.81 15.67 | 9.04 10.86 8.06 10.16 11.62 14.41
+DMF            8.43  0.86  2.03 2.07 2.35  6.89 | 8.46  1.82 3.01  4.06  3.00  6.94
+DMSO           1.68  1.90  1.98 3.57 3.22  5.65 | 3.35  3.27 4.39  6.13  4.59  8.87
+Ethanol        1.73  0.82  0.66 2.27 1.70  5.36 | 1.59  0.77 2.19  3.29  2.62  5.38
+EthyleneGlycol 2.29  1.77  2.53 2.44 2.94  3.27 | 2.30  1.77 4.22  5.91  7.38  3.10
+Methanol       0.71  1.12  1.79 1.65 0.68  4.69 | 0.86  1.22 3.20  2.65  1.39  4.76
+NMP            3.16  2.52  3.08 3.06 1.67  4.71 | 2.80  2.12 4.29  3.96  1.88  7.39
+
+calibration (mean over LOSO solvents), k = 0 1 2 5 10
+measured  M1  4.39 1.56 1.40 1.27 1.15 | M1b 3.27 1.56 1.33 1.18 1.07 | M2 3.36 1.82 1.65 1.47 1.36 | M3 3.42 2.01 1.84 1.59 1.50 | M4 3.15 1.27 1.15 0.98 0.90
+predicted M1  4.06 2.59 2.34 2.02 1.92 | M1b 3.12 2.18 2.02 1.74 1.63 | M2 4.19 3.38 3.01 2.70 2.55 | M3 5.15 3.56 3.17 2.82 2.66 | M4 4.63 2.52 2.35 2.03 1.87

@@ -1,0 +1,22 @@
+# Colab run, --features uma (site_v3-style pooling), same data; 6481 reactions, 8210 rows (single-atom and Cr-carbonyl reactions failed)
+== LOFO | measured ==  M1 2.41  M1b 2.46  M2 1.67  M3 2.12  M4 1.71  water-only 7.00  (n=1291)
+== LOFO | predicted == M1 2.88  M1b 2.88  M2 3.79  M3 3.41  M4 3.05  water-only 7.89  (n=4414)
+== LOSO | measured ==  M1 3.55  M1b 2.77  M2 3.06  M3 3.30  M4 2.99  water-only 7.00  (n=1291)
+== LOSO | predicted == M1 4.10  M1b 3.38  M2 3.95  M3 4.42  M4 4.02  water-only 8.30  (n=4414)
+== published | measured ==  M1 0.50  M1b 0.48  M2 0.84  M3 1.30  M4 0.35  (n=112)
+== published | predicted == M1 0.73  M1b 0.70  M2 2.11  M3 2.43  M4 0.73  (n=239)
+== random grouped | measured ==  M1 0.72  M1b 0.68  M2 1.31  M3 1.50  M4 0.54  (n=1291)
+== random grouped | predicted == M1 1.00  M1b 0.97  M2 2.83  M3 2.81  M4 1.00  (n=4414)
+
+LOSO per solvent (measured | predicted), M1 / M1b / M2 / M3 / M4 / water-only
+Acetonitrile   9.50 12.00 10.32 7.54 7.81 15.67 | 9.39 11.47 8.36 7.64 8.62 14.56
+DMF            8.79  0.91  2.03 2.07 2.49  6.89 | 8.22  1.44 2.44 3.16 2.45  6.79
+DMSO           1.40  1.29  1.98 3.57 3.39  5.65 | 2.95  2.65 3.69 4.56 4.07  8.16
+Ethanol        1.59  0.67  0.66 2.27 1.57  5.36 | 1.59  0.61 1.82 2.61 1.53  5.36
+EthyleneGlycol 2.04  3.08  2.53 2.44 3.03  3.27 | 2.08  3.14 3.82 4.05 5.70  3.21
+Methanol       0.78  1.14  1.79 1.65 0.62  4.69 | 0.97  1.23 2.71 2.04 1.03  4.81
+NMP            3.25  2.54  3.08 3.06 1.64  4.71 | 2.56  2.04 3.85 3.19 2.01  7.03
+
+calibration (mean over LOSO solvents), k = 0 1 2 5 10
+measured  M1  4.41 1.39 1.20 1.09 0.97 | M1b 3.20 1.23 1.02 0.92 0.81 | M2 3.36 1.82 1.65 1.47 1.36 | M3 3.42 2.01 1.84 1.59 1.50 | M4 3.18 1.28 1.16 0.99 0.90
+predicted M1  3.96 2.21 1.85 1.69 1.61 | M1b 3.22 1.86 1.57 1.44 1.31 | M2 3.84 3.19 2.74 2.41 2.26 | M3 3.91 3.07 2.65 2.32 2.19 | M4 3.64 2.01 1.81 1.61 1.46
